@@ -16,7 +16,7 @@
         body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: black; color: white; overflow: hidden; }
         
         video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
-        canvas { display: none; } /* QR解析の裏処理用 */
+        canvas { display: none; } 
         #flash { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; z-index: 2; pointer-events: none; }
         
         .main-wrapper {
@@ -62,18 +62,31 @@
         #shoot-btn:active { transform: translateY(3px); box-shadow: 0 1px #1e293b; }
         #shoot-btn.ready { background: linear-gradient(135deg, #f59e0b, #d97706) !important; color: white !important; box-shadow: 0 4px #92400e !important; }
 
-        /* 【改良】クリア時にカメラ映像（背面）がうっすら透けて見えるように背景を半透明化 */
-        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.98); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; padding: 30px; text-align: center; color: white; }
-        #resBoard { background: rgba(15, 23, 42, 0.65) !important; backdrop-filter: blur(2px); } /* スキャン待機画面をシースルーに */
+        /* オーバーレイ共通（スタート・リザルト） */
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.98); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; padding: 30px; text-align: center; color: white; }
+        
+        /* 【重要】クリア時の画面は背景を少し暗く透過し、他のゲームパーツ（キャラやボタン）の「上に」重ねる設定 */
+        #resBoard { 
+            background: rgba(15, 23, 42, 0.75) !important; 
+            backdrop-filter: blur(4px); 
+            z-index: 9999 !important; /* 最前面に配置してキャラクターを完全に裏に隠す */
+        } 
 
         .res-title { font-size: 32px; color: var(--accent); margin-bottom: 20px; font-weight: bold; font-family: serif; }
         .res-body { font-size: 16px; margin-bottom: 30px; line-height: 1.6; color: #cbd5e1; }
         .action-btn { background: #10b981; color: white; border: none; padding: 15px 40px; font-size: 20px; font-weight: bold; border-radius: 30px; cursor: pointer; width: 80%; max-width: 280px; box-shadow: 0 4px #059669; }
         .action-btn:active { transform: translateY(2px); box-shadow: 0 2px #059669; }
 
-        /* QRコード読み取りの枠を中央にうっすら表示 */
-        .qr-target-box { width: 180px; height: 180px; border: 3px dashed var(--accent); border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; font-size: 40px; background: rgba(0,0,0,0.3); animation: pulseBox 1s infinite alternate; }
-        @keyframes pulseBox { from { opacity: 0.6; } to { opacity: 1; } }
+        /* カメラ覗き込み用の黄色い点線枠（完全にクリアな視界を確保） */
+        .qr-target-box { 
+            width: 200px; height: 200px; 
+            border: 4px dashed var(--accent); 
+            border-radius: 16px; 
+            margin-bottom: 25px; 
+            background: transparent; /* 中身を完全に透明にしてカメラ映像を見やすく */
+            box-shadow: 0 0 20px rgba(0,0,0,0.6);
+            position: relative;
+        }
 
         .sparkle { position: absolute; font-size: 40px; animation: burst 0.4s ease-out forwards; pointer-events: none; z-index: 20; text-shadow: 0 0 8px #ff5722; }
         @keyframes burst { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
@@ -86,7 +99,8 @@
 <body>
 
     <video id="video" autoplay playsinline muted></video>
-    <canvas id="hidden-canvas"></canvas> <div id="flash"></div>
+    <canvas id="hidden-canvas"></canvas> 
+    <div id="flash"></div>
 
     <div id="startBoard" class="overlay">
         <div class="res-title">ターゲット接近！</div>
@@ -94,7 +108,7 @@
         <button class="action-btn" onclick="clickToStartGame()">バトル開始！</button>
     </div>
 
-    <div class="main-wrapper">
+    <div class="main-wrapper" id="gameplay-ui">
         <div class="hud">
             <div class="hud-card">タイム: <span id="timer">30</span> 秒</div>
             <div class="hud-card" id="loc-name">玉村町エリア</div>
@@ -124,10 +138,10 @@
     <div id="resBoard" class="overlay" style="display: none;">
         <div class="res-title" id="resTitle">LEVEL 1 CLEAR!</div>
         
-        <div id="qr-box-area" class="qr-target-box" style="display:none;">📷</div>
+        <div id="qr-box-area" class="qr-target-box" style="display:none;"></div>
 
         <div class="res-body" id="resBody">結果</div>
-        <button class="action-btn" id="res-action-btn" onclick="back()">マップに戻る</button>
+        <button class="action-btn" id="res-action-btn" onclick="back()">キャンセルして戻る</button>
     </div>
 
     <script>
@@ -137,7 +151,7 @@
         
         let isMessageLocked = false; 
         let gameHasStarted = false; 
-        let isScanningQR = false; // QRコードスキャン中フラグ
+        let isScanningQR = false; 
 
         window.onload = function() {
             try {
@@ -255,7 +269,7 @@
             triggerHitEffects();
 
             if(hp <= 0) {
-                end(true, "レベル1 クリア！");
+                end(true, "LEVEL 1 CLEAR!");
             } else {
                 nextTurn();
             }
@@ -292,29 +306,33 @@
             playTone(90, 'square', 0.2, 0.4);
         }
 
-        // ★クリア時の大改良処理
+        // ★クリア時（エンド処理）の大改良：ここでゲームUIを非表示にし、QRスキャンのみを最前面で起動
         function end(success, msg) {
             clearInterval(timerInterval);
             clearInterval(bgmInterval);
             
+            // 1. ゲームプレイ中のUI（キャラ、HP、ボタン等）を丸ごと非表示にして画面をクリアにする
+            if(success) {
+                document.getElementById('gameplay-ui').style.display = 'none';
+            }
+
             document.getElementById('resBoard').style.display = 'flex';
             document.getElementById('resTitle').innerText = success ? "LEVEL 1 CLEAR!" : "GAME OVER";
             
             if(success) {
-                // クリア時は背景を透かして、中央にQRコードの照準枠を表示
+                // 黄色い点線の照準枠を表示
                 document.getElementById('qr-box-area').style.display = 'flex';
                 document.getElementById('resBody').innerHTML = 
                     `<span style="color:#facc15;font-size:24px;font-weight:bold;">+ ${score} PT 獲得！</span><br><br>` +
-                    `<span style="color:#34d399; font-weight:bold;">【自動スキャン起動中】</span><br>このまま近くにある「レベル2専用QRコード」をこの画面にかざしてください！`;
+                    `<span style="color:#34d399; font-weight:bold;">【自動スキャン起動中】</span><br>上の黄色い枠の中に、現地にある「レベル2専用QRコード」をかざしてください。`;
                 
-                // 「マップに戻る」をキャンセル用ボタンとして文言変更
                 document.getElementById('res-action-btn').innerText = "キャンセルして戻る";
 
                 let total = parseInt(localStorage.getItem('tamamura_points_demo') || '0');
                 localStorage.setItem('tamamura_points_demo', total + score);
                 playFanfare();
 
-                // 🔍 バックグラウンドQRコードスキャナーを始動！
+                // ★川島様のご指摘通り、ここで初めてQRスキャンのループ機能をONにする
                 isScanningQR = true;
                 requestAnimationFrame(scanQRCodeLoop);
             } else {
@@ -325,7 +343,7 @@
             }
         }
 
-        // 🎥 カメラ映像から1秒間に何十回もQRコードを監視するループ関数
+        // カメラ映像を監視するループ処理（クリア後のみ連動）
         function scanQRCodeLoop() {
             if (!isScanningQR) return;
 
@@ -337,28 +355,24 @@
                 canvas.width = 300;
                 canvas.height = 300;
                 
-                // カメラの中央部分を切り取ってCanvasに写す
+                // カメラ映像をCanvasに転写して解析
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 
-                // jsQRライブラリでQRコードを解析
                 const code = jsQR(imageData.data, imageData.width, imageData.height, {
                     inversionAttempts: "dontInvert",
                 });
 
-                // QRコードが見つかった場合！
                 if (code) {
-                    isScanningQR = false; // スキャン停止
+                    isScanningQR = false; 
                     playTone(523.25, 'sine', 0.1, 0.3); // ピピッという成功音
                     
-                    // 読み取ったURL（レベル2のアドレス）へそのまま直接ジャンプ！
                     setTimeout(() => {
                         window.location.href = code.data;
                     }, 200);
                     return;
                 }
             }
-            // 次のフレームも監視を継続
             requestAnimationFrame(scanQRCodeLoop);
         }
 
