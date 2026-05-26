@@ -1,0 +1,23 @@
+function end(success, msg) {
+    clearInterval(timerInterval);
+    clearInterval(bgmInterval);
+    
+    document.getElementById('resBoard').style.display = 'flex';
+    document.getElementById('resTitle').innerText = success ? "LEVEL 1 CLEAR!" : "GAME OVER";
+    
+    // クリアした場合のみ、レベル2への案内を出す
+    if(success) {
+        document.getElementById('resBody').innerHTML = 
+            `${msg}<br><br><span style="color:#facc15;font-size:24px;font-weight:bold;">+ ${score} PT 獲得！</span><br><br>` +
+            `<p style="font-size:14px; color:white;">おめでとう！近くにある「レベル2解放QRコード」を探してスキャンしてね！</p>`;
+        
+        // ローカルストレージにL1クリアフラグを立てる
+        localStorage.setItem('tamamura_l1_cleared', 'true');
+        let total = parseInt(localStorage.getItem('tamamura_points_demo') || '0');
+        localStorage.setItem('tamamura_points_demo', total + score);
+        playFanfare();
+    } else {
+        document.getElementById('resBody').innerText = msg;
+        playTone(100, 'sawtooth', 0.8, 0.5);
+    }
+}

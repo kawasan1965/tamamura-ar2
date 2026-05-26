@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>たまむらふぃーるど - 拠点選択マップ</title>
+    <style>
+        :root {
+            --primary: #005088;
+            --accent: #facc15;
+            --dark: #0f172a;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--dark); color: white; overflow: hidden; }
+
+        /* 全画面カメラ映像エリア */
+        #video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        .overlay-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); z-index: 2; pointer-events: none; }
+
+        /* 【新機能】玉村町の形をした外郭白線コンテナ */
+        .tamamura-map-container {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 400px;
+            height: 35vh;
+            z-index: 3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none; /* 下にあるボタンを邪魔しない */
+        }
+        /* Googleマップからトレースした精巧な玉村町のSVG白線 */
+        .tamamura-outline {
+            width: 100%;
+            height: 100%;
+            stroke: rgba(255, 255, 255, 0.75);
+            stroke-width: 3;
+            fill: rgba(255, 255, 255, 0.05); /* ほんのり中を明るく */
+            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
+        }
+
+        /* ヘッダーHUD */
+        .header-hud {
+            position: absolute; top: 20px; left: 15px; right: 15px;
+            background: rgba(15, 23, 42, 0.85); padding: 12px 20px; border-radius: 16px;
+            z-index: 10; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .title-group h1 { font-size: 18px; color: var(--accent); }
+        .title-group p { font-size: 11px; color: #94a3b8; }
+        .points-badge { background: linear-gradient(135deg, #10b981, #059669); padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 13px; }
+
+        /* ガイドメッセージ */
+        .map-guide {
+            position: absolute; bottom: 185px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8); padding: 8px 16px; border-radius: 20px;
+            font-size: 12px; font-weight: bold; z-index: 10; border: 1px solid rgba(255,255,255,0.2);
+            text-align: center; white-space: nowrap; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        /* 拠点（モンスター出現スポット）選択用横スクロールメニュー */
+        .spot-carousel {
+            position: absolute; bottom: 40px; left: 0; width: 100%;
+            display: flex; gap: 15px; padding: 0 20px 15px 20px;
+            overflow-x: auto; scroll-snap-type: x mandatory; z-index: 10;
+            -webkit-overflow-scrolling: touch;
+        }
+        /* スクロールバー非表示 */
+        .spot-carousel::-webkit-scrollbar { display: none; }
+        
+        .spot-card {
+            flex: 0 0 75%; scroll-snap-align: center;
+            background: rgba(15, 23, 42, 0.95); border-radius: 18px; padding: 15px;
+            border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 15px;
+        }
+        .spot-icon { font-size: 36px; background: #1e293b; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; border-radius: 14px; border: 1px solid #334155; }
+        .spot-info { flex-grow: 1; }
+        .spot-info h3 { font-size: 15px; margin-bottom: 2px; color: white; }
+        .spot-info p { font-size: 11px; color: #94a3b8; margin-bottom: 8px; }
+        
+        .battle-start-btn {
+            background: linear-gradient(135deg, #ef4444, #dc2626); color: white;
+            border: none; padding: 8px 14px; font-size: 12px; font-weight: bold;
+            border-radius: 8px; cursor: pointer; box-shadow: 0 3px #991b1b;
+        }
+        .battle-start-btn:active { transform: translateY(2px); box-shadow: 0 1px #991b1b; }
+    </style>
+</head>
+<body>
+
+    <video id="video" autoplay playsinline muted></video>
+    <div class="overlay-mask"></div>
+
+    <div class="header-hud">
+        <div class="title-group">
+            <h1>たまむらふぃーるど</h1>
+            <p>実証実験モード - 玉村町を調査せよ</p>
+        </div>
+        <div class="points-badge">通算: <span id="total-points">0</span> PT</div>
+    </div>
+
+    <div class="tamamura-map-container">
+        <svg class="tamamura-outline" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+            <path d="
+                M 45,15 
+                L 55,16 L 60,18 L 62,25 L 68,27 L 72,24 L 75,32 
+                L 68,43 L 73,50 L 76,55 L 75,64 L 88,77 L 85,83 
+                L 76,82 L 72,88 L 60,86 L 50,78 L 47,82 L 40,82 
+                L 35,76 L 31,77 L 27,68 L 33,63 L 33,55 L 25,52 
+                L 24,46 L 30,39 L 36,40 L 40,32 L 40,24 L 43,20 Z
+            "/>
+        </svg>
+    </div>
+
+    <div class="map-guide">左右にスワイプしてバトル拠点を選択 ▽</div>
+
+    <div class="spot-carousel">
+        <div class="spot-card">
+            <div class="spot-icon">🌲</div>
+            <div class="spot-info">
+                <h3>北部公園スポット</h3>
+                <p>出現：たまご竜 (LV.1)</p>
+                <button class="battle-start-btn" onclick="goToBattle('北部公園', '🦖')">バトル開始</button>
+            </div>
+        </div>
+        <div class="spot-card">
+            <div class="spot-icon">🏫</div>
+            <div class="spot-info">
+                <h3>玉村小学校スポット</h3>
+                <p>出現：わんぱく犬 (LV.1)</p>
+                <button class="battle-start-btn" onclick="goToBattle('玉村小学校', '🐶')">バトル開始</button>
+            </div>
+        </div>
+        <div class="spot-card">
+            <div class="spot-icon">🌊</div>
+            <div class="spot-info">
+                <h3>烏川・岩倉橋スポット</h3>
+                <p>出現：リバーカッパ (LV.1)</p>
+                <button class="battle-start-btn" onclick="goToBattle('烏川・岩倉橋', '🥒')">バトル開始</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            // ローカルストレージからポイントを復元して表示
+            let pts = localStorage.getItem('tamamura_points_demo') || '0';
+            document.getElementById('total-points').innerText = pts;
+
+            // カメラの起動処理
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+                .then(stream => { document.getElementById('video').srcObject = stream; })
+                .catch(() => { console.log("カメラのない環境（PC等）または許可なしで起動しました"); });
+        };
+
+        // バトル画面への安全なデータ引き渡しと遷移
+        function goToBattle(name, monster) {
+            sessionStorage.setItem('current_battle_name', name + 'バトル');
+            sessionStorage.setItem('current_battle_monster', monster);
+            window.location.href = 'level1.html';
+        }
+    </script>
+</body>
+</html>
