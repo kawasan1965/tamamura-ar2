@@ -23,16 +23,25 @@
 
         .arena { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; min-height: 0; }
         
+        /* ★改善1：配置を少し下げ(margin-top)、かつ全方位に動くアニメーション(bossDynamic)を適用 */
         #monsterCanvas { 
             image-rendering: pixelated; 
             image-rendering: crisp-edges;
-            width: 60vw; height: 60vw; max-width: 240px; max-height: 240px;
+            width: 60vw; height: 60vw; max-width: 220px; max-height: 220px;
             filter: drop-shadow(0 0 15px rgba(239, 68, 68, 0.7));
-            animation: floatL2 1.5s infinite alternate ease-in-out;
+            margin-top: 50px; 
+            animation: bossDynamic 4s infinite ease-in-out; 
         }
-        @keyframes floatL2 { from { transform: translateY(0px) scale(1); } to { transform: translateY(-10px) scale(1.03); } }
+        
+        /* ★改善2：上下・左右に動き回るダイナミックアニメーション */
+        @keyframes bossDynamic { 
+            0% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(35px, 15px) scale(1.02); }
+            50% { transform: translate(0, 30px) scale(1.05); }
+            75% { transform: translate(-35px, 15px) scale(1.02); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
 
-        /* 【修正】60秒タイマー用の長いゲージフレーム */
         .limit-bar-frame { width: 240px; height: 8px; background: rgba(255,255,255,0.2); border-radius: 4px; margin-top: 15px; overflow: hidden; border: 1px solid black; }
         #limit-bar { width: 100%; height: 100%; background: #34d399; transition: width 0.1s linear; }
 
@@ -62,7 +71,7 @@
         .action-btn { background: #ef4444; color: white; border: none; padding: 15px 40px; font-size: 20px; font-weight: bold; border-radius: 30px; cursor: pointer; width: 80%; max-width: 280px; box-shadow: 0 4px #991b1b; }
         
         .shake { animation: shakeL2 0.1s linear infinite alternate; }
-        @keyframes shakeL2 { from { transform: translate(-4px, 0); } to { transform: translate(4px, 0); } }
+        @keyframes shakeL2 { from { transform: translate(-8px, 20px); } to { transform: translate(8px, 30px); } }
     </style>
 </head>
 <body>
@@ -79,243 +88,4 @@
         <div class="hud">
             <div class="hud-card">LEVEL 2 (究極)</div>
             <div class="hud-card" id="timer-card">作戦時間: <span id="timer-text">60.0</span>秒</div>
-            <div class="hud-card">BOSS HP: <span id="hp-val">20</span> / 20</div>
-        </div>
-
-        <div class="arena">
-            <canvas id="monsterCanvas" width="32" height="32"></canvas>
-            <div class="limit-bar-frame"><div id="limit-bar"></div></div>
-        </div>
-
-        <div class="message-board">
-            <div id="instruction">コマンドを入力せよ！</div>
-        </div>
-
-        <div class="controls">
-            <div class="grid-3">
-                <button id="btn-a" class="abc-btn" onclick="tapAbc('A')">A</button>
-                <button id="btn-b" class="abc-btn" onclick="tapAbc('B')">B</button>
-                <button id="btn-c" class="abc-btn" onclick="tapAbc('C')">C</button>
-            </div>
-            <button id="shoot-btn" class="btn-d" onclick="attackL2()">究極・攻撃ボタンD</button>
-        </div>
-    </div>
-
-    <div id="winBoard" class="overlay" style="display:none; background:rgba(10,10,25,0.95);">
-        <h2 style="font-size:40px; color:var(--yellow); margin-bottom:20px;">MISSION COMPLETE!</h2>
-        <p style="font-size:18px; line-height:1.8; margin-bottom:30px;">玉村町の歴史と未来は守られた！<br>あなたはすべての守護獣を鎮めることに成功しました。</p>
-        <button class="action-btn" style="background:#10b981; box-shadow:0 4px #047857;" onclick="location.href='index.html'">凱旋（マップに戻る）</button>
-    </div>
-
-    <div id="loseBoard" class="overlay" style="display:none; background:rgba(40,10,10,0.95);">
-        <h2 style="font-size:40px; color:#ef4444; margin-bottom:20px;">作戦失敗...</h2>
-        <p style="font-size:18px; line-height:1.8; margin-bottom:30px;">制限時間が経過してしまいました。<br>もう一度QRコードを読み直して挑戦してください！</p>
-        <button class="action-btn" style="background:#475569; box-shadow:0 4px #334155;" onclick="location.href='index.html'">戻る</button>
-    </div>
-
-    <script>
-        let hp = 20; // 【修正】ライフを20点満点に設定
-        let audioCtx, bgmInterval, limitInterval;
-        
-        let target1 = '', target2 = ''; 
-        let step = 1; 
-        let limitTime = 600; // 【修正】60秒タイマー（0.1秒単位なので600カウント）
-
-        const canvas = document.getElementById('monsterCanvas');
-        const ctx = canvas.getContext('2d');
-
-        function startL2Game() {
-            document.getElementById('qrCheckOverlay').style.display = 'none';
-            document.getElementById('mainUi').style.display = 'flex';
-            
-            initAudio();
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-                    .then(s => { document.getElementById('video').srcObject = s; });
-            }
-            
-            drawMonster();
-            startKuppaBgm(); 
-            generateNewCommand(); 
-            startLimitTimer(); 
-        }
-
-        function drawMonster() {
-            const params = new URLSearchParams(window.location.search);
-            const dotData = params.get('data') || "";
-            ctx.clearRect(0, 0, 32, 32);
-            
-            // キャラクター固有の色パレット
-            let mainColor = "var(--yellow)";
-            if(dotData.includes("001FF8")) mainColor = "var(--accent)";  // ゴーレム（赤）
-            if(dotData.includes("0003C0")) mainColor = "var(--green)";   // スネーク（緑）
-            if(dotData.includes("000180")) mainColor = "var(--purple)";  // サイ（紫）
-
-            let charIndex = 0;
-            for(let y=0; y<32; y++) {
-                for(let x=0; x<32; x+=4) {
-                    const hexChar = dotData[charIndex] || "0";
-                    const num = parseInt(hexChar, 16);
-                    charIndex++;
-                    for(let bit=0; bit<4; bit++) {
-                        const mask = 1 << (3 - bit);
-                        if((num & mask) !== 0) {
-                            ctx.fillStyle = mainColor;
-                            ctx.fillRect(x + bit, y, 1, 1);
-                        }
-                    }
-                }
-            }
-            // 邪悪な目
-            ctx.fillStyle = "white"; ctx.fillRect(13, 10, 2, 2); ctx.fillRect(17, 10, 2, 2);
-            ctx.fillStyle = "red"; ctx.fillRect(13, 10, 1, 1); ctx.fillRect(18, 10, 1, 1);
-        }
-
-        function generateNewCommand() {
-            const choices = ['A', 'B', 'C'];
-            target1 = choices[Math.floor(Math.random() * 3)];
-            
-            let remain = choices.filter(c => c !== target1);
-            target2 = remain[Math.floor(Math.random() * 2)];
-
-            step = 1;
-            resetButtonStyles();
-            
-            document.getElementById('instruction').innerHTML = `コマンドを入力せよ！<br><span style="color:var(--blue);font-size:20px;">①【 ${target1} 】</span> ➔ ②【 ${target2} 】`;
-        }
-
-        function resetButtonStyles() {
-            ['A','B','C'].forEach(l => {
-                document.getElementById(`btn-${l.toLowerCase()}`).className = 'abc-btn';
-            });
-            const dBtn = document.getElementById('shoot-btn');
-            dBtn.classList.remove('ready');
-            dBtn.innerText = "究極・攻撃ボタンD";
-        }
-
-        // 【修正】全体制限時間を60秒で一括管理する減算タイマー
-        function startLimitTimer() {
-            limitInterval = setInterval(() => {
-                limitTime--;
-                
-                // ゲージバーを減少させる（60秒かけてゆっくり減る）
-                document.getElementById('limit-bar').style.width = `${(limitTime / 600) * 100}%`;
-                document.getElementById('timer-text').innerText = (limitTime / 10).toFixed(1);
-
-                // 60秒がタイムアウト（ゲームオーバー）した場合
-                if (limitTime <= 0) {
-                    clearInterval(bgmInterval);
-                    clearInterval(limitInterval);
-                    playTone(100, 'sawtooth', 0.8, 0.5); // 絶望音
-                    document.getElementById('mainUi').style.display = 'none';
-                    document.getElementById('loseBoard').style.display = 'flex';
-                }
-            }, 100);
-        }
-
-        function tapAbc(l) {
-            if(hp <= 0 || limitTime <= 0) return;
-
-            if (step === 1) {
-                if (l === target1) {
-                    step = 2;
-                    document.getElementById(`btn-${l.toLowerCase()}`).classList.add('highlight1');
-                    document.getElementById('instruction').innerHTML = `ナイス！次を押せ！<br>①【 ${target1} 】 ➔ <span style="color:var(--accent);font-size:20px;">②【 ${target2} 】</span>`;
-                    playTone(330, 'sine', 0.08, 0.2);
-                } else {
-                    handleWrongInput();
-                }
-            } else if (step === 2) {
-                if (l === target2) {
-                    step = 3;
-                    document.getElementById(`btn-${l.toLowerCase()}`).classList.add('highlight2');
-                    document.getElementById('instruction').innerHTML = "<span style='color:#10b981;font-size:18px;'>チャージ完了！攻撃ボタンDを押せ！</span>";
-                    document.getElementById('shoot-btn').classList.add('ready');
-                    document.getElementById('shoot-btn').innerText = "🔥 今だ！撃て！ 🔥";
-                    playTone(660, 'sine', 0.08, 0.2);
-                } else {
-                    handleWrongInput();
-                }
-            }
-        }
-
-        // コマンドを間違えた場合、即座に入力がリセットされる
-        function handleWrongInput() {
-            playTone(150, 'sawtooth', 0.1, 0.3);
-            document.getElementById('instruction').innerHTML = "<span style='color:var(--accent);'>入力ミス！コマンド再生成！</span>";
-            generateNewCommand();
-        }
-
-        function attackL2() {
-            if (step !== 3 || hp <= 0 || limitTime <= 0) return;
-
-            hp -= 1; // 【修正】1回のコンボ成功で1ポイントだけ確実に削る
-            document.getElementById('hp-val').innerText = hp;
-            
-            document.getElementById('flash').style.opacity = '0.5';
-            setTimeout(() => document.getElementById('flash').style.opacity = '0', 50);
-            canvas.classList.add('shake');
-            setTimeout(() => canvas.classList.remove('shake'), 150);
-            
-            playTone(120, 'sawtooth', 0.08, 0.4);
-            playTone(70, 'square', 0.12, 0.5);
-
-            if (hp <= 0) {
-                clearInterval(bgmInterval);
-                clearInterval(limitInterval);
-                document.getElementById('mainUi').style.display = 'none';
-                document.getElementById('winBoard').style.display = 'flex';
-                playVictoryFanfare();
-            } else {
-                // 【修正】攻撃が成功したら、次のコマンド入力を即座にランダムリセット
-                generateNewCommand();
-            }
-        }
-
-        function initAudio() {
-            try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
-        }
-
-        function playTone(freq, type, duration, volume) {
-            if(!audioCtx) return;
-            try {
-                let osc = audioCtx.createOscillator(), gainNode = audioCtx.createGain();
-                osc.type = type; osc.frequency.value = freq;
-                gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-                osc.connect(gainNode); gainNode.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + duration);
-            } catch(e){}
-        }
-
-        function startKuppaBgm() {
-            const bass = [
-                110.00, 116.54, 110.00, 0,      98.00,  103.83, 98.00,  0,
-                87.31,  92.50,  87.31,  0,      73.42,  0,      82.41,  0,
-                110.00, 116.54, 110.00, 0,      98.00,  103.83, 98.00,  0,
-                87.31,  92.50,  87.31,  0,      146.83, 138.59, 130.81, 123.47
-            ];
-            const melody = [
-                0,      220.00, 233.08, 220.00, 0,      196.00, 207.65, 196.00,
-                0,      174.61, 185.00, 174.61, 0,      293.66, 0,      329.63,
-                0,      220.00, 233.08, 220.00, 0,      196.00, 207.65, 196.00,
-                0,      174.61, 185.00, 174.61, 0,      0,      0,      0
-            ];
-            let idx = 0;
-
-            bgmInterval = setInterval(() => {
-                if (bass[idx] > 0) playTone(bass[idx], 'triangle', 0.18, 0.12); 
-                if (melody[idx] > 0) playTone(melody[idx], 'sawtooth', 0.1, 0.03); 
-                idx = (idx + 1) % bass.length;
-            }, 140); 
-        }
-
-        function playVictoryFanfare() {
-            setTimeout(() => playTone(523.25, 'square', 0.1, 0.1), 0);
-            setTimeout(() => playTone(659.25, 'square', 0.1, 0.1), 100);
-            setTimeout(() => playTone(783.99, 'square', 0.1, 0.1), 200);
-            setTimeout(() => playTone(1046.50, 'square', 0.6, 0.1), 300);
-        }
-    </script>
-</body>
-</html>
+            <div class="hud-card">BOSS HP:
