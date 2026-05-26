@@ -128,32 +128,31 @@
         let step = 1; 
         let limitTime = 600; 
         let cmdLimitTime = 30; 
+        let gameHasStarted = false; // ゲーム開始管理フラグ
 
         const canvas = document.getElementById('monsterCanvas');
         const ctx = canvas.getContext('2d');
 
-        // ★【修正】起動順序を最適化し、フリーズを完全に防御
         function startL2Game() {
-            // 1. まずUI画面を切り替えてブラウザに要素を認識させる
+            if (gameHasStarted) return;
+            gameHasStarted = true;
+
             document.getElementById('qrCheckOverlay').style.display = 'none';
             document.getElementById('mainUi').style.display = 'flex';
             
-            // 2. 音声システムのセキュリティロック解除
             initAudio();
             if (audioCtx && audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
 
-            // 3. カメラ映像のキャッチ
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
                     .then(s => { document.getElementById('video').srcObject = s; })
                     .catch(e => { console.log("疑似AR起動"); });
             }
             
-            // 4. キャラ描画・音楽・ゲームロジックを安全に始動
             drawMonster();
-            startKuppaBgm(); 
+            startKuppaBgm(); // ★音楽を起動
             generateNewCommand(); 
             startLimitTimer(); 
         }
@@ -289,11 +288,14 @@
             } catch(e){}
         }
 
+        // ★【バグ修正箇所】条件分岐を正しく修正しました
         function startKuppaBgm() {
+            // クッパ城を模した不気味なベース音の音階データ
             const bass = [110, 116, 110, 0, 98, 103, 98, 0, 87, 92, 87, 0, 73, 0, 82, 0];
             let idx = 0;
             bgmInterval = setInterval(() => {
-                if(!gameHasStarted) {
+                // 条件を修正（ゲームが始まっているならBGMを演奏する）
+                if(gameHasStarted) {
                     if (bass[idx] > 0) playTone(bass[idx], 'triangle', 0.18, 0.12); 
                     idx = (idx + 1) % bass.length;
                 }
