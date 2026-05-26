@@ -6,7 +6,7 @@
     <title>たまむらふぃーるど - レベル2ボス戦</title>
     <style>
         :root { --accent: #ef4444; --yellow: #facc15; --blue: #3b82f6; --green: #10b981; --purple: #a855f7; }
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: no; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
         body, html { width: 100%; height: 100%; font-family: sans-serif; background: #000; color: #fff; overflow: hidden; }
         
         video { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
@@ -19,7 +19,7 @@
 
         .hud { width: 100%; display: flex; justify-content: space-between; padding: 15px; }
         .hud-card { background: rgba(0,0,0,0.85); padding: 8px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; border: 2px solid #ef4444; backdrop-filter: blur(4px); }
-        #timer-text { color: #f87171; }
+        #timer-text { color: #f87171; font-size: 14px; }
 
         .arena { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; min-height: 0; }
         
@@ -28,13 +28,13 @@
             image-rendering: crisp-edges;
             width: 60vw; height: 60vw; max-width: 240px; max-height: 240px;
             filter: drop-shadow(0 0 15px rgba(239, 68, 68, 0.7));
-            animation: floatL2 1.5s infinite alternate ease-in-out; /* ラスボスなので素早く揺れる */
+            animation: floatL2 1.5s infinite alternate ease-in-out;
         }
         @keyframes floatL2 { from { transform: translateY(0px) scale(1); } to { transform: translateY(-10px) scale(1.03); } }
 
-        /* 3秒制限時間のタイマーバー（視覚的に焦らせる演出） */
-        .limit-bar-frame { width: 200px; height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; margin-top: 15px; overflow: hidden; }
-        #limit-bar { width: 100%; height: 100%; background: var(--yellow); transition: width 0.1s linear; }
+        /* 【修正】60秒タイマー用の長いゲージフレーム */
+        .limit-bar-frame { width: 240px; height: 8px; background: rgba(255,255,255,0.2); border-radius: 4px; margin-top: 15px; overflow: hidden; border: 1px solid black; }
+        #limit-bar { width: 100%; height: 100%; background: #34d399; transition: width 0.1s linear; }
 
         .message-board { width: 100%; display: flex; justify-content: center; padding: 5px 15px; }
         #instruction { 
@@ -70,7 +70,7 @@
     <div id="flash"></div>
 
     <div id="qrCheckOverlay" class="overlay">
-        <h2 style="color:var(--accent); font-size:28px; margin-bottom:20px; color:#ef4444;">⚠️ BOSS WARNING ⚠️</h2>
+        <h2 style="font-size:28px; margin-bottom:20px; color:#ef4444;">⚠️ BOSS WARNING ⚠️</h2>
         <p style="line-height:1.6; margin-bottom:30px; color:#cbd5e1;">たまむら古文書の封印が解かれました。<br>極めて危険な「レベル2守護獣」を検知！</p>
         <button class="action-btn" onclick="startL2Game()">防衛戦を開始！</button>
     </div>
@@ -78,8 +78,8 @@
     <div class="main-wrapper" id="mainUi" style="display:none;">
         <div class="hud">
             <div class="hud-card">LEVEL 2 (究極)</div>
-            <div class="hud-card" id="timer-card">制限時間: <span id="timer-text">3.0</span>秒</div>
-            <div class="hud-card">BOSS HP: <span id="hp-val">500</span></div>
+            <div class="hud-card" id="timer-card">作戦時間: <span id="timer-text">60.0</span>秒</div>
+            <div class="hud-card">BOSS HP: <span id="hp-val">20</span> / 20</div>
         </div>
 
         <div class="arena">
@@ -107,14 +107,19 @@
         <button class="action-btn" style="background:#10b981; box-shadow:0 4px #047857;" onclick="location.href='index.html'">凱旋（マップに戻る）</button>
     </div>
 
+    <div id="loseBoard" class="overlay" style="display:none; background:rgba(40,10,10,0.95);">
+        <h2 style="font-size:40px; color:#ef4444; margin-bottom:20px;">作戦失敗...</h2>
+        <p style="font-size:18px; line-height:1.8; margin-bottom:30px;">制限時間が経過してしまいました。<br>もう一度QRコードを読み直して挑戦してください！</p>
+        <button class="action-btn" style="background:#475569; box-shadow:0 4px #334155;" onclick="location.href='index.html'">戻る</button>
+    </div>
+
     <script>
-        let hp = 500;
+        let hp = 20; // 【修正】ライフを20点満点に設定
         let audioCtx, bgmInterval, limitInterval;
         
-        // 難解コマンドシステム用の変数
         let target1 = '', target2 = ''; 
-        let step = 1; // 1: 最初のボタン待ち, 2: 2番目のボタン待ち, 3: 攻撃D待ち
-        let limitTime = 30; // 3.0秒（1 = 0.1秒単位で管理）
+        let step = 1; 
+        let limitTime = 600; // 【修正】60秒タイマー（0.1秒単位なので600カウント）
 
         const canvas = document.getElementById('monsterCanvas');
         const ctx = canvas.getContext('2d');
@@ -130,22 +135,21 @@
             }
             
             drawMonster();
-            startKuppaBgm(); // クッパ風不穏BGM始動！
-            generateNewCommand(); // 最初の2連コマンド生成
-            startLimitTimer(); // 3秒カウントダウンタイマー始動！
+            startKuppaBgm(); 
+            generateNewCommand(); 
+            startLimitTimer(); 
         }
 
-        // URLデータに応じて自動でカラーパレットを変化させる本番描画エンジン
         function drawMonster() {
             const params = new URLSearchParams(window.location.search);
             const dotData = params.get('data') || "";
             ctx.clearRect(0, 0, 32, 32);
             
-            // モンスターの文字数の特性から色味を「赤・緑・紫」に自動分岐させる
+            // キャラクター固有の色パレット
             let mainColor = "var(--yellow)";
             if(dotData.includes("001FF8")) mainColor = "var(--accent)";  // ゴーレム（赤）
-            if(dotData.includes("000FF0")) mainColor = "var(--green)";   // スネーク（緑）
-            if(dotData.includes("001008")) mainColor = "var(--purple)";  // サイ（紫）
+            if(dotData.includes("0003C0")) mainColor = "var(--green)";   // スネーク（緑）
+            if(dotData.includes("000180")) mainColor = "var(--purple)";  // サイ（紫）
 
             let charIndex = 0;
             for(let y=0; y<32; y++) {
@@ -162,24 +166,21 @@
                     }
                 }
             }
-            // ラスボス共通の邪悪に光る目
-            ctx.fillStyle = "white"; ctx.fillRect(10, 11, 3, 2); ctx.fillRect(19, 11, 3, 2);
-            ctx.fillStyle = "red"; ctx.fillRect(11, 11, 1, 1); ctx.fillRect(20, 11, 1, 1);
+            // 邪悪な目
+            ctx.fillStyle = "white"; ctx.fillRect(13, 10, 2, 2); ctx.fillRect(17, 10, 2, 2);
+            ctx.fillStyle = "red"; ctx.fillRect(13, 10, 1, 1); ctx.fillRect(18, 10, 1, 1);
         }
 
-        // 【新ルール1】ランダムな2連撃コマンドを生成するロジック
         function generateNewCommand() {
             const choices = ['A', 'B', 'C'];
             target1 = choices[Math.floor(Math.random() * 3)];
             
-            // 2つ目のボタンは、1つ目と違うボタンになるようにシャッフル
             let remain = choices.filter(c => c !== target1);
             target2 = remain[Math.floor(Math.random() * 2)];
 
             step = 1;
             resetButtonStyles();
             
-            // 最初の案内を表示
             document.getElementById('instruction').innerHTML = `コマンドを入力せよ！<br><span style="color:var(--blue);font-size:20px;">①【 ${target1} 】</span> ➔ ②【 ${target2} 】`;
         }
 
@@ -192,31 +193,30 @@
             dBtn.innerText = "究極・攻撃ボタンD";
         }
 
-        // 【新ルール3】3秒タイマーのループ処理
+        // 【修正】全体制限時間を60秒で一括管理する減算タイマー
         function startLimitTimer() {
             limitInterval = setInterval(() => {
                 limitTime--;
                 
-                // タイマーバーの長さを減らす
-                document.getElementById('limit-bar').style.width = `${(limitTime / 30) * 100}%`;
+                // ゲージバーを減少させる（60秒かけてゆっくり減る）
+                document.getElementById('limit-bar').style.width = `${(limitTime / 600) * 100}%`;
                 document.getElementById('timer-text').innerText = (limitTime / 10).toFixed(1);
 
-                // 3秒が経過した場合：リセットして最初から
+                // 60秒がタイムアウト（ゲームオーバー）した場合
                 if (limitTime <= 0) {
-                    playTone(130, 'sawtooth', 0.15, 0.3); // ブブーという失敗音
-                    document.getElementById('instruction').innerHTML = "<span style='color:var(--accent);'>タイムアウト！リセットされました！</span>";
-                    limitTime = 30; // タイマーリセット
-                    generateNewCommand(); // コマンド再生成
+                    clearInterval(bgmInterval);
+                    clearInterval(limitInterval);
+                    playTone(100, 'sawtooth', 0.8, 0.5); // 絶望音
+                    document.getElementById('mainUi').style.display = 'none';
+                    document.getElementById('loseBoard').style.display = 'flex';
                 }
             }, 100);
         }
 
-        // ボタンがタップされた時のコマンド判定
         function tapAbc(l) {
-            if(hp <= 0) return;
+            if(hp <= 0 || limitTime <= 0) return;
 
             if (step === 1) {
-                // 1文字目の判定
                 if (l === target1) {
                     step = 2;
                     document.getElementById(`btn-${l.toLowerCase()}`).classList.add('highlight1');
@@ -226,11 +226,10 @@
                     handleWrongInput();
                 }
             } else if (step === 2) {
-                // 2文字目の判定
                 if (l === target2) {
                     step = 3;
                     document.getElementById(`btn-${l.toLowerCase()}`).classList.add('highlight2');
-                    document.getElementById('instruction').innerHTML = "<span style='color:#10b981;font-size:18px;animation:pulse 0.5s infinite alternate;'>チャージ完了！攻撃ボタンDを連打せよ！</span>";
+                    document.getElementById('instruction').innerHTML = "<span style='color:#10b981;font-size:18px;'>チャージ完了！攻撃ボタンDを押せ！</span>";
                     document.getElementById('shoot-btn').classList.add('ready');
                     document.getElementById('shoot-btn').innerText = "🔥 今だ！撃て！ 🔥";
                     playTone(660, 'sine', 0.08, 0.2);
@@ -240,40 +239,35 @@
             }
         }
 
+        // コマンドを間違えた場合、即座に入力がリセットされる
         function handleWrongInput() {
             playTone(150, 'sawtooth', 0.1, 0.3);
-            document.getElementById('instruction').innerHTML = "<span style='color:var(--accent);'>コマンドミス！リセット！</span>";
+            document.getElementById('instruction').innerHTML = "<span style='color:var(--accent);'>入力ミス！コマンド再生成！</span>";
             generateNewCommand();
         }
 
-        // 攻撃ボタンDを押した時の処理
         function attackL2() {
-            if (step !== 3 || hp <= 0) return;
+            if (step !== 3 || hp <= 0 || limitTime <= 0) return;
 
-            hp -= 50;
-            if (hp < 0) hp = 0;
+            hp -= 1; // 【修正】1回のコンボ成功で1ポイントだけ確実に削る
             document.getElementById('hp-val').innerText = hp;
             
-            // 画面フラッシュとボスが震える演出
             document.getElementById('flash').style.opacity = '0.5';
             setTimeout(() => document.getElementById('flash').style.opacity = '0', 50);
             canvas.classList.add('shake');
             setTimeout(() => canvas.classList.remove('shake'), 150);
             
-            // 重厚な大ダメージ爆発音
-            playTone(100, 'sawtooth', 0.1, 0.4);
-            playTone(60, 'square', 0.2, 0.5);
+            playTone(120, 'sawtooth', 0.08, 0.4);
+            playTone(70, 'square', 0.12, 0.5);
 
             if (hp <= 0) {
-                // ボス討伐成功！すべてを停止
                 clearInterval(bgmInterval);
                 clearInterval(limitInterval);
                 document.getElementById('mainUi').style.display = 'none';
                 document.getElementById('winBoard').style.display = 'flex';
                 playVictoryFanfare();
             } else {
-                // 攻撃が当たったら、3秒タイマーを再び満タンに戻して次のコマンドへ！
-                limitTime = 30;
+                // 【修正】攻撃が成功したら、次のコマンド入力を即座にランダムリセット
                 generateNewCommand();
             }
         }
@@ -294,16 +288,13 @@
             } catch(e){}
         }
 
-        // 🎼 初代スーパーマリオのクッパ城（ラスボス戦）を再現した不穏な3和音BGMループ
         function startKuppaBgm() {
-            // 地下を這うような重苦しいベースライン
             const bass = [
                 110.00, 116.54, 110.00, 0,      98.00,  103.83, 98.00,  0,
                 87.31,  92.50,  87.31,  0,      73.42,  0,      82.41,  0,
                 110.00, 116.54, 110.00, 0,      98.00,  103.83, 98.00,  0,
                 87.31,  92.50,  87.31,  0,      146.83, 138.59, 130.81, 123.47
             ];
-            // 不協和音を醸し出す不気味な高音トラック
             const melody = [
                 0,      220.00, 233.08, 220.00, 0,      196.00, 207.65, 196.00,
                 0,      174.61, 185.00, 174.61, 0,      293.66, 0,      329.63,
@@ -313,14 +304,13 @@
             let idx = 0;
 
             bgmInterval = setInterval(() => {
-                if (bass[idx] > 0) playTone(bass[idx], 'triangle', 0.18, 0.12); // トライアングル波で重低音を表現
-                if (melody[idx] > 0) playTone(melody[idx], 'sawtooth', 0.1, 0.03); // ノコギリ波でトゲトゲした恐怖感を表現
+                if (bass[idx] > 0) playTone(bass[idx], 'triangle', 0.18, 0.12); 
+                if (melody[idx] > 0) playTone(melody[idx], 'sawtooth', 0.1, 0.03); 
                 idx = (idx + 1) % bass.length;
-            }, 140); // ラスボス戦らしい少し早めのテンポ
+            }, 140); 
         }
 
         function playVictoryFanfare() {
-            // 全クリアの壮大なファンファーレ
             setTimeout(() => playTone(523.25, 'square', 0.1, 0.1), 0);
             setTimeout(() => playTone(659.25, 'square', 0.1, 0.1), 100);
             setTimeout(() => playTone(783.99, 'square', 0.1, 0.1), 200);
