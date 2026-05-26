@@ -274,4 +274,102 @@
                 const pop = document.createElement('div');
                 pop.className = 'damage-pop';
                 pop.innerText = '-10';
-                pop.style.left = (rect.left + rect.width
+                pop.style.left = (rect.left + rect.width / 2 - 20) + 'px';
+                pop.style.top = (rect.top - 20) + 'px';
+                document.body.appendChild(pop);
+                setTimeout(() => pop.remove(), 500);
+            }
+
+            playTone(180, 'sawtooth', 0.15, 0.3);
+            playTone(90, 'square', 0.2, 0.4);
+        }
+
+        function end(success, msg) {
+            clearInterval(timerInterval);
+            clearInterval(bgmInterval);
+            
+            document.getElementById('resBoard').style.display = 'flex';
+            document.getElementById('resTitle').innerText = success ? "LEVEL 1 CLEAR!" : "GAME OVER";
+            
+            if(success) {
+                document.getElementById('resBody').innerHTML = 
+                    `${msg}<br><br><span style="color:#facc15;font-size:24px;font-weight:bold;">+ ${score} PT 獲得！</span><br><br>` +
+                    `<p style="font-size:14px; color:white;">おめでとう！近くにある「レベル2専用QRコード」を探してスキャンしてね！</p>`;
+                
+                let total = parseInt(localStorage.getItem('tamamura_points_demo') || '0');
+                localStorage.setItem('tamamura_points_demo', total + score);
+                playFanfare();
+            } else {
+                document.getElementById('resBody').innerText = msg;
+                playTone(100, 'sawtooth', 0.8, 0.5);
+            }
+        }
+
+        function back() { window.location.href = 'index.html'; }
+
+        function initAudio() {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch(e) { console.log("Audio Error"); }
+        }
+
+        // ★文字化けを完全に修正したサウンドエンジン関数
+        function playTone(freq, type, duration, volume) {
+            if(!audioCtx) return;
+            try {
+                let osc = audioCtx.createOscillator(), gainNode = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+                // 正しい記述に修正（エラーの原因となっていた文字化けを排除）
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + duration);
+            } catch(e){}
+        }
+
+        function startBpmMusic() {
+            const track1 = [
+                329.63, 329.63, 0,      329.63, 0,      261.63, 329.63, 0, 
+                392.00, 0,      0,      0,      196.00, 0,      0,      0,
+                261.63, 0,      0,      196.00, 0,      0,      164.81, 0,
+                220.00, 0,      246.94, 0,      233.08, 220.00, 0,      0
+            ];
+            const track2 = [
+                392.00, 392.00, 0,      392.00, 0,      329.63, 392.00, 0,
+                523.25, 0,      0,      0,      392.00, 0,      0,      0,
+                523.25, 0,      0,      392.00, 0,      0,      329.63, 0,
+                440.00, 0,      493.88, 0,      466.16, 440.00, 0,      0
+            ];
+            const bass = [
+                130.81, 0,      130.81, 0,      130.81, 0,      130.81, 0,
+                196.00, 0,      196.00, 0,      196.00, 196.00, 98.00,  0,
+                130.81, 0,      98.00,  0,      82.41,  0,      65.41,  0,
+                110.00, 0,      123.47, 0,      116.54, 110.00, 0,      0
+            ];
+            let index = 0;
+
+            bgmInterval = setInterval(() => {
+                if (!gameHasStarted) return;
+
+                if (track1[index] > 0) playTone(track1[index], 'square', 0.1, 0.03);
+                if (track2[index] > 0) playTone(track2[index], 'square', 0.08, 0.02);
+                if (bass[index] > 0) playTone(bass[index], 'triangle', 0.12, 0.06);
+                
+                if (!isMessageLocked) {
+                    document.getElementById('instruction').innerText = selected === target ? "準備完了！ 攻撃ボタンDを狙え！" : `選択ボタン【 ${target} 】を押そう！`;
+                }
+
+                index = (index + 1) % track1.length;
+            }, 125); 
+        }
+
+        function playFanfare() {
+            setTimeout(() => playTone(523.25, 'square', 0.15, 0.1), 0);   
+            setTimeout(() => playTone(587.33, 'square', 0.15, 0.1), 150); 
+            setTimeout(() => playTone(659.25, 'square', 0.15, 0.1), 300); 
+            setTimeout(() => playTone(783.99, 'square', 0.4, 0.1), 450);  
+        }
+    </script>
+</body>
+</html>
