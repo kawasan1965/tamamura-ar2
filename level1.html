@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>たまむらふぃーるど - レベル1バトル</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
         :root {
             --primary: #005088;
@@ -15,9 +16,9 @@
         body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: black; color: white; overflow: hidden; }
         
         video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        canvas { display: none; } /* QR解析の裏処理用 */
         #flash { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; z-index: 2; pointer-events: none; }
         
-        /* 画面全体レイアウト（Flexboxでスマホの重なりを絶対防御） */
         .main-wrapper {
             position: relative; width: 100%; height: 100%;
             display: flex; flex-direction: column; justify-content: space-between; z-index: 5;
@@ -28,7 +29,6 @@
         #timer { color: #f87171; font-size: 14px; }
         #score { color: #34d399; font-size: 14px; }
         
-        /* モンスターエリア（スマホの縦幅に合わせて自動縮小） */
         .arena { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; min-height: 0; }
         #active-monster { font-size: 28vw; max-width: 140px; filter: drop-shadow(0 8px 15px rgba(0,0,0,0.6)); transition: all 0.2s ease; animation: float 3s ease-in-out infinite; line-height: 1; }
         @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
@@ -37,7 +37,6 @@
         #hp-bar { width: 100%; height: 100%; background: var(--danger); transition: width 0.1s; }
         #hp-text { color: white; font-size: 12px; font-weight: bold; margin-top: 5px; text-shadow: 1px 1px 3px black; }
         
-        /* メッセージボードエリア（ボタンの上に独立させて絶対重なりを防止） */
         .message-board { width: 100%; display: flex; justify-content: center; padding: 5px 15px; }
         #instruction { 
             background: rgba(0,0,0,0.85); padding: 10px 15px; border-radius: 20px; 
@@ -46,7 +45,6 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         
-        /* 操作パネル */
         .controls { 
             width: 100%; background: rgba(15, 23, 42, 0.95); padding: 15px 15px 35px 15px; 
             border-radius: 24px 24px 0 0; display: flex; flex-direction: column; gap: 12px; 
@@ -64,12 +62,18 @@
         #shoot-btn:active { transform: translateY(3px); box-shadow: 0 1px #1e293b; }
         #shoot-btn.ready { background: linear-gradient(135deg, #f59e0b, #d97706) !important; color: white !important; box-shadow: 0 4px #92400e !important; }
 
-        /* オーバーレイ（スタート画面・リザルト共通） */
-        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.98); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; padding: 30px; text-align: center; color: white; }
+        /* 【改良】クリア時にカメラ映像（背面）がうっすら透けて見えるように背景を半透明化 */
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.98); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; padding: 30px; text-align: center; color: white; }
+        #resBoard { background: rgba(15, 23, 42, 0.65) !important; backdrop-filter: blur(2px); } /* スキャン待機画面をシースルーに */
+
         .res-title { font-size: 32px; color: var(--accent); margin-bottom: 20px; font-weight: bold; font-family: serif; }
         .res-body { font-size: 16px; margin-bottom: 30px; line-height: 1.6; color: #cbd5e1; }
         .action-btn { background: #10b981; color: white; border: none; padding: 15px 40px; font-size: 20px; font-weight: bold; border-radius: 30px; cursor: pointer; width: 80%; max-width: 280px; box-shadow: 0 4px #059669; }
         .action-btn:active { transform: translateY(2px); box-shadow: 0 2px #059669; }
+
+        /* QRコード読み取りの枠を中央にうっすら表示 */
+        .qr-target-box { width: 180px; height: 180px; border: 3px dashed var(--accent); border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; font-size: 40px; background: rgba(0,0,0,0.3); animation: pulseBox 1s infinite alternate; }
+        @keyframes pulseBox { from { opacity: 0.6; } to { opacity: 1; } }
 
         .sparkle { position: absolute; font-size: 40px; animation: burst 0.4s ease-out forwards; pointer-events: none; z-index: 20; text-shadow: 0 0 8px #ff5722; }
         @keyframes burst { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
@@ -82,7 +86,7 @@
 <body>
 
     <video id="video" autoplay playsinline muted></video>
-    <div id="flash"></div>
+    <canvas id="hidden-canvas"></canvas> <div id="flash"></div>
 
     <div id="startBoard" class="overlay">
         <div class="res-title">ターゲット接近！</div>
@@ -119,8 +123,11 @@
 
     <div id="resBoard" class="overlay" style="display: none;">
         <div class="res-title" id="resTitle">LEVEL 1 CLEAR!</div>
+        
+        <div id="qr-box-area" class="qr-target-box" style="display:none;">📷</div>
+
         <div class="res-body" id="resBody">結果</div>
-        <button class="action-btn" onclick="back()">マップに戻る</button>
+        <button class="action-btn" id="res-action-btn" onclick="back()">マップに戻る</button>
     </div>
 
     <script>
@@ -130,6 +137,7 @@
         
         let isMessageLocked = false; 
         let gameHasStarted = false; 
+        let isScanningQR = false; // QRコードスキャン中フラグ
 
         window.onload = function() {
             try {
@@ -160,7 +168,7 @@
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
                     .then(stream => { document.getElementById('video').srcObject = stream; })
-                    .catch(() => { console.log("疑似ARモードで起動しました"); });
+                    .catch(() => { console.log("疑似ARモードで起動"); });
             }
 
             startBpmMusic();
@@ -284,6 +292,7 @@
             playTone(90, 'square', 0.2, 0.4);
         }
 
+        // ★クリア時の大改良処理
         function end(success, msg) {
             clearInterval(timerInterval);
             clearInterval(bgmInterval);
@@ -292,20 +301,71 @@
             document.getElementById('resTitle').innerText = success ? "LEVEL 1 CLEAR!" : "GAME OVER";
             
             if(success) {
+                // クリア時は背景を透かして、中央にQRコードの照準枠を表示
+                document.getElementById('qr-box-area').style.display = 'flex';
                 document.getElementById('resBody').innerHTML = 
-                    `${msg}<br><br><span style="color:#facc15;font-size:24px;font-weight:bold;">+ ${score} PT 獲得！</span><br><br>` +
-                    `<p style="font-size:14px; color:white;">おめでとう！近くにある「レベル2専用QRコード」を探してスキャンしてね！</p>`;
+                    `<span style="color:#facc15;font-size:24px;font-weight:bold;">+ ${score} PT 獲得！</span><br><br>` +
+                    `<span style="color:#34d399; font-weight:bold;">【自動スキャン起動中】</span><br>このまま近くにある「レベル2専用QRコード」をこの画面にかざしてください！`;
                 
+                // 「マップに戻る」をキャンセル用ボタンとして文言変更
+                document.getElementById('res-action-btn').innerText = "キャンセルして戻る";
+
                 let total = parseInt(localStorage.getItem('tamamura_points_demo') || '0');
                 localStorage.setItem('tamamura_points_demo', total + score);
                 playFanfare();
+
+                // 🔍 バックグラウンドQRコードスキャナーを始動！
+                isScanningQR = true;
+                requestAnimationFrame(scanQRCodeLoop);
             } else {
+                document.getElementById('qr-box-area').style.display = 'none';
                 document.getElementById('resBody').innerText = msg;
+                document.getElementById('res-action-btn').innerText = "マップに戻る";
                 playTone(100, 'sawtooth', 0.8, 0.5);
             }
         }
 
-        function back() { window.location.href = 'index.html'; }
+        // 🎥 カメラ映像から1秒間に何十回もQRコードを監視するループ関数
+        function scanQRCodeLoop() {
+            if (!isScanningQR) return;
+
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('hidden-canvas');
+            
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                const ctx = canvas.getContext('2d');
+                canvas.width = 300;
+                canvas.height = 300;
+                
+                // カメラの中央部分を切り取ってCanvasに写す
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // jsQRライブラリでQRコードを解析
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+
+                // QRコードが見つかった場合！
+                if (code) {
+                    isScanningQR = false; // スキャン停止
+                    playTone(523.25, 'sine', 0.1, 0.3); // ピピッという成功音
+                    
+                    // 読み取ったURL（レベル2のアドレス）へそのまま直接ジャンプ！
+                    setTimeout(() => {
+                        window.location.href = code.data;
+                    }, 200);
+                    return;
+                }
+            }
+            // 次のフレームも監視を継続
+            requestAnimationFrame(scanQRCodeLoop);
+        }
+
+        function back() { 
+            isScanningQR = false;
+            window.location.href = 'index.html'; 
+        }
 
         function initAudio() {
             try {
@@ -313,7 +373,6 @@
             } catch(e) { console.log("Audio Error"); }
         }
 
-        // ★文字化けを完全に修正したサウンドエンジン関数
         function playTone(freq, type, duration, volume) {
             if(!audioCtx) return;
             try {
@@ -321,7 +380,6 @@
                 osc.type = type;
                 osc.frequency.value = freq;
                 gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
-                // 正しい記述に修正（エラーの原因となっていた文字化けを排除）
                 gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
                 osc.connect(gainNode); gainNode.connect(audioCtx.destination);
                 osc.start(); osc.stop(audioCtx.currentTime + duration);
