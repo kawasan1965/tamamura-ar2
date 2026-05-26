@@ -128,7 +128,6 @@
         let target = '', selected = '';
         let timerInterval, bgmInterval, audioCtx;
         
-        // メッセージを音楽タイマーに上書きさせないためのロックフラグ
         let isMessageLocked = false; 
         let gameHasStarted = false; 
 
@@ -147,7 +146,6 @@
             }
         };
 
-        // ユーザーのタップをトリガーに、スマホのブラウザセキュリティを完全解放して始動する関数
         function clickToStartGame() {
             if (gameHasStarted) return;
             gameHasStarted = true;
@@ -219,7 +217,7 @@
                 document.getElementById('instruction').innerText = "準備完了！ 攻撃ボタンDを狙え！";
                 playTone(440, 'triangle', 0.1, 0.2); 
             } else {
-                isMessageLocked = true; // 誤選択メッセージをタイマーからロック
+                isMessageLocked = true; 
                 const dBtn = document.getElementById('shoot-btn');
                 if(dBtn) dBtn.classList.remove('ready');
                 document.getElementById('instruction').innerText = `ちがうよ！【 ${target} 】を押してね！`;
@@ -230,7 +228,7 @@
         function attack() {
             if (!gameHasStarted) return;
             if(selected !== target) {
-                isMessageLocked = true; // 空振りメッセージをタイマーからロック
+                isMessageLocked = true; 
                 playTone(150, 'sawtooth', 0.2, 0.3);
                 const dBtn = document.getElementById('shoot-btn');
                 if(dBtn) dBtn.classList.remove('ready');
@@ -244,4 +242,36 @@
 
             document.getElementById('score').innerText = score;
             document.getElementById('hp-bar').style.width = `${hp}%`;
-            document.getElementById('hp-text').innerText = `HP
+            document.getElementById('hp-text').innerText = `HP: ${hp} / 100`;
+            
+            triggerHitEffects();
+
+            if(hp <= 0) {
+                end(true, "レベル1 クリア！");
+            } else {
+                nextTurn();
+            }
+        }
+
+        function triggerHitEffects() {
+            document.getElementById('flash').style.opacity = '0.6';
+            setTimeout(() => document.getElementById('flash').style.opacity = '0', 50);
+            
+            const monsterEl = document.getElementById('active-monster');
+            if(monsterEl) {
+                monsterEl.classList.add('shake');
+                setTimeout(() => monsterEl.classList.remove('shake'), 150);
+                
+                const rect = monsterEl.getBoundingClientRect();
+                const spark = document.createElement('div');
+                spark.className = 'sparkle';
+                spark.innerText = '💥';
+                spark.style.left = (rect.left + rect.width / 2 - 20) + 'px';
+                spark.style.top = (rect.top + rect.height / 2 - 20) + 'px';
+                document.body.appendChild(spark);
+                setTimeout(() => spark.remove(), 400);
+
+                const pop = document.createElement('div');
+                pop.className = 'damage-pop';
+                pop.innerText = '-10';
+                pop.style.left = (rect.left + rect.width
