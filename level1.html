@@ -13,9 +13,10 @@
             --danger: #ef4444;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-        body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: black; color: white; overflow: hidden; }
+        body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0f172a; color: white; overflow: hidden; }
         
-        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        /* ビデオは初期状態では完全に非表示、クリア時に表示 */
+        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; display: none; }
         canvas { display: none; } 
         #flash { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; z-index: 2; pointer-events: none; }
         
@@ -62,14 +63,14 @@
         #shoot-btn:active { transform: translateY(3px); box-shadow: 0 1px #1e293b; }
         #shoot-btn.ready { background: linear-gradient(135deg, #f59e0b, #d97706) !important; color: white !important; box-shadow: 0 4px #92400e !important; }
 
-        /* オーバーレイ共通（スタート・リザルト） */
-        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.98); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; padding: 30px; text-align: center; color: white; }
+        /* オーバーレイ共通 */
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; padding: 30px; text-align: center; color: white; }
         
-        /* 【重要】クリア時の画面は背景を少し暗く透過し、他のゲームパーツ（キャラやボタン）の「上に」重ねる設定 */
+        /* クリア時はビデオの上に透過させて重ねる（z-index: 9999） */
         #resBoard { 
-            background: rgba(15, 23, 42, 0.75) !important; 
-            backdrop-filter: blur(4px); 
-            z-index: 9999 !important; /* 最前面に配置してキャラクターを完全に裏に隠す */
+            background: rgba(15, 23, 42, 0.5) !important; 
+            backdrop-filter: blur(2px); 
+            z-index: 9999 !important; 
         } 
 
         .res-title { font-size: 32px; color: var(--accent); margin-bottom: 20px; font-weight: bold; font-family: serif; }
@@ -77,13 +78,13 @@
         .action-btn { background: #10b981; color: white; border: none; padding: 15px 40px; font-size: 20px; font-weight: bold; border-radius: 30px; cursor: pointer; width: 80%; max-width: 280px; box-shadow: 0 4px #059669; }
         .action-btn:active { transform: translateY(2px); box-shadow: 0 2px #059669; }
 
-        /* カメラ覗き込み用の黄色い点線枠（完全にクリアな視界を確保） */
+        /* 黄色い点線のスキャン照準枠 */
         .qr-target-box { 
             width: 200px; height: 200px; 
             border: 4px dashed var(--accent); 
             border-radius: 16px; 
             margin-bottom: 25px; 
-            background: transparent; /* 中身を完全に透明にしてカメラ映像を見やすく */
+            background: transparent; 
             box-shadow: 0 0 20px rgba(0,0,0,0.6);
             position: relative;
         }
@@ -104,7 +105,7 @@
 
     <div id="startBoard" class="overlay">
         <div class="res-title">ターゲット接近！</div>
-        <div class="res-body" id="start-loc-info">玉村町エリアにモンスター反応。<br>ARカメラと音声システムを起動します。</div>
+        <div class="res-body" id="start-loc-info">玉村町エリアにモンスター反応。<br>これより迎撃作戦を開始します。</div>
         <button class="action-btn" onclick="clickToStartGame()">バトル開始！</button>
     </div>
 
@@ -160,7 +161,7 @@
                 
                 if (savedName) {
                     document.getElementById('loc-name').innerText = savedName;
-                    document.getElementById('start-loc-info').innerHTML = `${savedName}に${savedMonster || 'モンスター'}が出現！<br>ARカメラと音声システムを起動します。`;
+                    document.getElementById('start-loc-info').innerHTML = `${savedName}に${savedMonster || 'モンスター'}が出現！<br>これより迎撃作戦を開始します。`;
                 }
                 if (savedMonster) document.getElementById('active-monster').innerText = savedMonster;
             } catch (e) {
@@ -168,6 +169,7 @@
             }
         };
 
+        // ★大改造1：ゲーム開始時はカメラを起動「しない」
         function clickToStartGame() {
             if (gameHasStarted) return;
             gameHasStarted = true;
@@ -179,11 +181,8 @@
                 audioCtx.resume();
             }
 
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-                    .then(stream => { document.getElementById('video').srcObject = stream; })
-                    .catch(() => { console.log("疑似ARモードで起動"); });
-            }
+            // 【削除】ここにあったgetUserMedia（カメラ起動）を完全に撤去しました。
+            // ゲーム中は通常のゲーム背景（濃い紺色）のままプレイします。
 
             startBpmMusic();
             nextTurn();
@@ -306,13 +305,13 @@
             playTone(90, 'square', 0.2, 0.4);
         }
 
-        // ★クリア時（エンド処理）の大改良：ここでゲームUIを非表示にし、QRスキャンのみを最前面で起動
+        // ★大改造2：ゲームをクリアした瞬間に、初めてカメラを「遅延起動」させる
         function end(success, msg) {
             clearInterval(timerInterval);
             clearInterval(bgmInterval);
             
-            // 1. ゲームプレイ中のUI（キャラ、HP、ボタン等）を丸ごと非表示にして画面をクリアにする
             if(success) {
+                // 戦闘UIを非表示にする
                 document.getElementById('gameplay-ui').style.display = 'none';
             }
 
@@ -320,11 +319,10 @@
             document.getElementById('resTitle').innerText = success ? "LEVEL 1 CLEAR!" : "GAME OVER";
             
             if(success) {
-                // 黄色い点線の照準枠を表示
                 document.getElementById('qr-box-area').style.display = 'flex';
                 document.getElementById('resBody').innerHTML = 
                     `<span style="color:#facc15;font-size:24px;font-weight:bold;">+ ${score} PT 獲得！</span><br><br>` +
-                    `<span style="color:#34d399; font-weight:bold;">【自動スキャン起動中】</span><br>上の黄色い枠の中に、現地にある「レベル2専用QRコード」をかざしてください。`;
+                    `<span style="color:#34d399; font-weight:bold;">【カメラ＆QRスキャン起動中】</span><br>上の黄色い枠の中に、現地にある「レベル2専用QRコード」をかざしてください。`;
                 
                 document.getElementById('res-action-btn').innerText = "キャンセルして戻る";
 
@@ -332,9 +330,22 @@
                 localStorage.setItem('tamamura_points_demo', total + score);
                 playFanfare();
 
-                // ★川島様のご指摘通り、ここで初めてQRスキャンのループ機能をONにする
-                isScanningQR = true;
-                requestAnimationFrame(scanQRCodeLoop);
+                // 📸 川島様大絶賛の設計：クリアした瞬間に初めてスマホの背面カメラを起動！
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+                        .then(stream => { 
+                            const videoEl = document.getElementById('video');
+                            videoEl.srcObject = stream;
+                            videoEl.style.display = 'block'; // 非表示だったビデオタグを表に出す
+                            
+                            // カメラが無事にキャッチできたら、QRスキャンループを開始
+                            isScanningQR = true;
+                            requestAnimationFrame(scanQRCodeLoop);
+                        })
+                        .catch(() => { 
+                            document.getElementById('resBody').innerHTML += "<br><span style='color:red;'>（カメラの起動に失敗しました）</span>";
+                        });
+                }
             } else {
                 document.getElementById('qr-box-area').style.display = 'none';
                 document.getElementById('resBody').innerText = msg;
@@ -343,7 +354,6 @@
             }
         }
 
-        // カメラ映像を監視するループ処理（クリア後のみ連動）
         function scanQRCodeLoop() {
             if (!isScanningQR) return;
 
@@ -355,7 +365,6 @@
                 canvas.width = 300;
                 canvas.height = 300;
                 
-                // カメラ映像をCanvasに転写して解析
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 
@@ -365,8 +374,15 @@
 
                 if (code) {
                     isScanningQR = false; 
-                    playTone(523.25, 'sine', 0.1, 0.3); // ピピッという成功音
+                    playTone(523.25, 'sine', 0.1, 0.3); // 成功音
                     
+                    // カメラのストリームを安全に停止
+                    try {
+                        const stream = video.srcObject;
+                        const tracks = stream.getTracks();
+                        tracks.forEach(track => track.stop());
+                    } catch(e){}
+
                     setTimeout(() => {
                         window.location.href = code.data;
                     }, 200);
@@ -378,6 +394,13 @@
 
         function back() { 
             isScanningQR = false;
+            // キャンセル時はカメラを止める
+            try {
+                const video = document.getElementById('video');
+                const stream = video.srcObject;
+                const tracks = stream.getTracks();
+                tracks.forEach(track => track.stop());
+            } catch(e){}
             window.location.href = 'index.html'; 
         }
 
