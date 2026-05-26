@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -7,118 +6,183 @@
     <title>たまむらふぃーるど - レベル2</title>
     <style>
         :root { --accent: #facc15; --danger: #ef4444; }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
         body, html { width: 100%; height: 100%; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
         
         video { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
-        .hud { position: relative; z-index: 10; padding: 20px; display: flex; justify-content: space-between; }
-        .hud-card { background: rgba(0,0,0,0.8); padding: 10px; border-radius: 10px; border: 1px solid var(--accent); font-size: 12px; }
+        #flash { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; z-index: 2; pointer-events: none; }
 
-        .arena { position: relative; z-index: 5; height: 50vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        
-        /* 【重要】32x32ドットを描画するためのキャンバス */
-        #monsterCanvas { 
-            image-rendering: pixelated; /* ドットをクッキリさせる魔法の1行 */
-            width: 256px; height: 256px; 
-            filter: drop-shadow(0 0 10px var(--accent));
-            animation: float 3s infinite alternate;
+        .main-wrapper {
+            position: relative; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: space-between; z-index: 5;
         }
-        @keyframes float { from { transform: translateY(0); } to { transform: translateY(-20px); } }
 
-        .controls { position: fixed; bottom: 0; width: 100%; background: rgba(0,0,0,0.9); padding: 20px; z-index: 10; border-top: 2px solid var(--accent); }
-        .msg { text-align: center; font-weight: bold; color: var(--accent); margin-bottom: 15px; }
-        .btn-d { width: 100%; background: linear-gradient(135deg, #ef4444, #991b1b); border: none; padding: 20px; color: white; font-size: 20px; font-weight: bold; border-radius: 15px; }
+        .hud { width: 100%; display: flex; justify-content: space-between; padding: 15px; }
+        .hud-card { background: rgba(0,0,0,0.85); padding: 8px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; border: 1px solid var(--accent); backdrop-filter: blur(4px); }
 
-        .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:30px; text-align:center; }
+        .arena { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; min-height: 0; }
+        
+        /* 32x32ドットをくっきり拡大描画するキャンバス設定 */
+        #monsterCanvas { 
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges;
+            width: 65vw; height: 65vw; 
+            max-width: 260px; max-height: 260px;
+            filter: drop-shadow(0 0 15px var(--accent));
+            animation: floatL2 2.5s infinite alternate ease-in-out;
+        }
+        @keyframes floatL2 { from { transform: translateY(0px); } to { transform: translateY(-15px); } }
+
+        .message-board { width: 100%; display: flex; justify-content: center; padding: 5px 15px; }
+        #instruction { 
+            background: rgba(0,0,0,0.85); padding: 10px 15px; border-radius: 20px; 
+            font-size: 14px; font-weight: bold; text-align: center; width: 100%; max-width: 340px;
+            border: 2px solid var(--accent); backdrop-filter: blur(4px); color: white;
+        }
+
+        .controls { 
+            width: 100%; background: rgba(0, 0, 0, 0.9); padding: 15px 15px 35px 15px; 
+            border-radius: 24px 24px 0 0; display: flex; flex-direction: column; gap: 12px; 
+            border-top: 2px solid var(--accent); backdrop-filter: blur(10px);
+        }
+        .btn-d { width: 100%; background: linear-gradient(135deg, #ef4444, #991b1b); border: none; padding: 18px 0; color: white; font-size: 22px; font-weight: bold; border-radius: 15px; box-shadow: 0 4px #7f1d1d; cursor: pointer; transition: all 0.1s; }
+        .btn-d:active { transform: translateY(2px); box-shadow: 0 2px #7f1d1d; }
+
+        .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.98); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:30px; text-align:center; }
+        .action-btn { background: #10b981; color: white; border: none; padding: 15px 40px; font-size: 20px; font-weight: bold; border-radius: 30px; cursor: pointer; width: 80%; max-width: 280px; box-shadow: 0 4px #059669; }
+        
+        .shake { animation: shakeAnimL2 0.15s linear; }
+        @keyframes shakeAnimL2 { 0%, 100% { transform: translate(0,0); } 25% { transform: translate(-8px,0); } 75% { transform: translate(8px,0); } }
     </style>
 </head>
 <body>
     <video id="video" autoplay playsinline muted></video>
+    <div id="flash"></div>
 
     <div id="qrCheckOverlay" class="overlay">
-        <h2 style="color:var(--accent); font-size:28px; margin-bottom:20px;">レベル2 起動待機中...</h2>
-        <p>レベル1をクリアした場所にある<br><strong>「レベル2専用QRコード」</strong>を<br>スマホのカメラでスキャンしてください。</p>
-        <div style="font-size:50px; margin:30px;">📸</div>
-        <p style="font-size:12px; color:#94a3b8;">※デモ用：URLの末尾に「?data=1」をつけると始動します</p>
+        <h2 style="color:var(--accent); font-size:28px; margin-bottom:20px;">LEVEL 2 起動完了</h2>
+        <p style="line-height:1.6; margin-bottom:30px;">現地QRコードの解析に成功しました。<br>高エネルギー反応のオリジナル守護獣を展開します。</p>
+        <button class="action-btn" onclick="startL2Game()">防衛戦を開始！</button>
     </div>
 
-    <div class="main-ui" style="display:none;" id="mainUi">
+    <div class="main-wrapper" id="mainUi" style="display:none;">
         <div class="hud">
             <div class="hud-card">LEVEL 2</div>
-            <div class="hud-card" id="loc-name">極秘地点</div>
-            <div class="hud-card">HP: <span id="hp-val">500</span></div>
+            <div class="hud-card" id="loc-name">玉村町・要地点</div>
+            <div class="hud-card">ボスHP: <span id="hp-val">500</span></div>
         </div>
 
         <div class="arena">
             <canvas id="monsterCanvas" width="32" height="32"></canvas>
-            <p style="margin-top:20px; font-weight:bold; color:var(--accent);">⚠️ 警告：強力な個体が出現！</p>
+        </div>
+
+        <div class="message-board">
+            <div id="instruction">⚠️ 警告：強力な個体が出現！</div>
         </div>
 
         <div class="controls">
-            <div id="msg" class="msg">現地エネルギーを充填中...</div>
             <button class="btn-d" onclick="attackL2()">超・攻撃ボタンD</button>
         </div>
     </div>
 
     <script>
         let hp = 500;
+        let audioCtx;
         const canvas = document.getElementById('monsterCanvas');
         const ctx = canvas.getContext('2d');
 
-        window.onload = function() {
-            const params = new URLSearchParams(window.location.search);
-            const dotData = params.get('data');
+        function startL2Game() {
+            document.getElementById('qrCheckOverlay').style.display = 'none';
+            document.getElementById('mainUi').style.display = 'flex';
+            
+            // 音声システム再始動
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch(e){}
 
-            if (dotData) {
-                // QRからデータが送られてきたらゲーム開始
-                document.getElementById('qrCheckOverlay').style.display = 'none';
-                document.getElementById('mainUi').style.display = 'block';
-                drawMonster();
-                
-                // カメラ起動
+            // カメラ起動
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-                    .then(s => document.getElementById('video').srcObject = s);
+                    .then(s => { document.getElementById('video').srcObject = s; })
+                    .catch(() => { console.log("疑似AR起動"); });
             }
-        };
+            
+            // ドット絵のレンダリング
+            drawMonster();
+        }
 
-        // 32x32のドット絵をプログラムで「色塗り」する関数
         function drawMonster() {
-            // 本来はURLのデータから色を決めますが、デモ用にランダムなドットモンスターを生成
-            for(let x=0; x<32; x++) {
-                for(let y=0; y<32; y++) {
-                    // 左右対称に塗ることで「モンスターっぽさ」を出す
-                    if (Math.random() > 0.7) {
-                        ctx.fillStyle = (x < 16) ? '#facc15' : '#facc15';
-                        ctx.fillRect(x, y, 1, 1);
-                        ctx.fillRect(31-x, y, 1, 1);
+            const params = new URLSearchParams(window.location.search);
+            const dotData = params.get('data') || "";
+            
+            ctx.clearRect(0, 0, 32, 32);
+            
+            // カナメ・ドラゴン用の黄金サイバーカラー
+            let mainColor = "#facc15"; 
+            let charIndex = 0;
+            
+            for(let y=0; y<32; y++) {
+                for(let x=0; x<32; x+=4) {
+                    const hexChar = dotData[charIndex] || "0";
+                    const num = parseInt(hexChar, 16);
+                    charIndex++;
+                    
+                    for(let bit=0; bit<4; bit++) {
+                        const mask = 1 << (3 - bit);
+                        if((num & mask) !== 0) {
+                            ctx.fillStyle = mainColor;
+                            ctx.fillRect(x + bit, y, 1, 1);
+                        }
                     }
                 }
             }
-            // 目の部分
+            
+            // コミカルな目を合成
             ctx.fillStyle = "white";
-            ctx.fillRect(10, 10, 2, 2); ctx.fillRect(20, 10, 2, 2);
+            ctx.fillRect(11, 12, 2, 2); ctx.fillRect(19, 12, 2, 2);
             ctx.fillStyle = "black";
-            ctx.fillRect(10, 11, 1, 1); ctx.fillRect(20, 11, 1, 1);
+            ctx.fillRect(11, 13, 1, 1); ctx.fillRect(19, 13, 1, 1);
         }
 
         function attackL2() {
+            if(hp <= 0) return;
+
             hp -= 50;
+            if(hp < 0) hp = 0;
             document.getElementById('hp-val').innerText = hp;
-            canvas.style.transform = "scale(1.2)";
-            setTimeout(() => canvas.style.transform = "scale(1)", 100);
-            if(hp <= 0) alert("レベル2 討伐成功！玉村町の平和を守りました！");
+            
+            // ヒットエフェクト
+            document.getElementById('flash').style.opacity = '0.5';
+            setTimeout(() => document.getElementById('flash').style.opacity = '0', 50);
+            
+            canvas.classList.add('shake');
+            setTimeout(() => canvas.classList.remove('shake'), 150);
+            
+            // ピコピコ攻撃音
+            playTone(120, 'sawtooth', 0.1, 0.2);
+            playTone(80, 'square', 0.15, 0.3);
+
+            if(hp <= 0) {
+                document.getElementById('instruction').innerText = "討伐成功！玉村町の平和を守った！";
+                playTone(523.25, 'square', 0.1, 0.1);
+                setTimeout(() => playTone(659.25, 'square', 0.1, 0.1), 100);
+                setTimeout(() => playTone(783.99, 'square', 0.4, 0.1), 200);
+                alert("レベル2 討伐成功！玉村町の平和を守りました！");
+            }
+        }
+
+        function playTone(freq, type, duration, volume) {
+            if(!audioCtx) return;
+            try {
+                let osc = audioCtx.createOscillator(), gainNode = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + duration);
+            } catch(e){}
         }
     </script>
 </body>
 </html>
-
-### 💡 運用のアドバイス
-
-1.  **QRコードの作り方**:
-    現地のポスターに貼るQRコードのURLを `https://（あなたのURL）/level2.html?data=1` のように設定します。
-2.  **体験の設計**:
-    `level1.html` をクリアすると、画面に「クリアした！周りを見渡してレベル2のQRを探せ！」と表示されます。
-3.  **ドット絵の魔法**:
-    `level2.html` 内の `drawMonster()` という関数が、QRから送られた「文字」を読み取って、その場で32×32のマス目に色を塗ります。これにより、**画像ファイルを1枚もダウンロードせずにオリジナルのキャラを表示**できます。
-
-この「2段構えのスキャン体験」は、実証実験としてのストーリー性が非常に高く、評価されるポイントになります！ぜひお試しください。
