@@ -73,7 +73,7 @@
             text-align: center; white-space: nowrap;
         }
 
-        /* 3つのバトル拠点カルーセル */
+        /* 3つのフィールドカルーセル */
         .spot-carousel {
             position: absolute; bottom: 25px; left: 0; width: 100%;
             display: flex; gap: 15px; padding: 0 20px 15px 20px;
@@ -168,17 +168,17 @@
         let stepCount = parseInt(localStorage.getItem('tamamura_steps')) || 0;
         let pts = localStorage.getItem('tamamura_total_pt') || localStorage.getItem('tamamura_points_demo') || '0';
 
+        // 連撃判定のクールダウン用のタイマー変数
+        let lastStepTime = 0;
+
         window.onload = function() {
-            // 通算ポイントと歩数のセット
             document.getElementById('total-points').innerText = pts;
             document.getElementById('today-steps').innerText = stepCount;
 
-            // 1. 背景ARカメラの起動
             navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
                 .then(stream => { document.getElementById('video').srcObject = stream; })
-                .catch(() => { console.log("カメラなし環境または未許可で起動"); });
+                .catch(() => { console.log("カメラ非対応環境"); });
 
-            // 2. センサー類の初期化
             checkSensorAvailability();
             startGpsTracking();
         };
@@ -210,18 +210,33 @@
                 }).catch(console.error);
         }
 
+        // ★【大改良】全方位3次元ベクター解析 ＆ 超高感度ペドメーター
         function startCounting() {
-            let lastZ = 0;
             window.addEventListener('devicemotion', (event) => {
                 if(!event.accelerationIncludingGravity) return;
-                let z = event.accelerationIncludingGravity.y || event.accelerationIncludingGravity.z || 0; 
-                let delta = Math.abs(z - lastZ);
-                if (delta > 11) { 
-                    stepCount++;
-                    document.getElementById('today-steps').innerText = stepCount;
-                    localStorage.setItem('tamamura_steps', stepCount);
+
+                // X軸(横揺れ)・Y軸(縦揺れ)・Z軸(前後揺れ)のパワーを全て取得
+                let x = event.accelerationIncludingGravity.x || 0;
+                let y = event.accelerationIncludingGravity.y || 0;
+                let z = event.accelerationIncludingGravity.z || 0;
+
+                // 【物理公式】3軸の揺れの総合パワー（ベクトル強度）を計算
+                let totalAcceleration = Math.sqrt(x * x + y * y + z * z);
+
+                // 地球の静止重力（約9.8）を引き算し、純粋な「スマホが動いた力」だけを抽出
+                let movementPower = Math.abs(totalAcceleration - 9.8);
+
+                // ★感度調整：しきい値を11から「7.5」へ引き下げ、小さな揺れも確実にキャッチ
+                if (movementPower > 7.5) {
+                    let now = Date.now();
+                    // 1歩進んだら、次の歩数までは最低0.25秒あける（連続カウント化けを防ぐ安全弁）
+                    if (now - lastStepTime > 250) {
+                        stepCount++;
+                        document.getElementById('today-steps').innerText = stepCount;
+                        localStorage.setItem('tamamura_steps', stepCount);
+                        lastStepTime = now;
+                    }
                 }
-                lastZ = z;
             });
         }
 
@@ -232,12 +247,9 @@
                 return;
             }
 
-            // watchPositionにより、移動を検知したタイミングで自動リアルタイム更新
             navigator.geolocation.watchPosition(async (position) => {
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
-                
-                // 常に表示するベースの「座標データ」を作成（小数点4桁でスッキリ表示）
                 const coordText = `[${lat.toFixed(4)}, ${lon.toFixed(4)}]`;
 
                 try {
@@ -246,38 +258,29 @@
                     
                     if (data && data.address) {
                         const a = data.address;
-                        
-                        // 日本の市区町村・町名・番地を抽出
                         const city = a.city || a.town || a.village || "";
                         const suburb = a.suburb || a.neighbourhood || "";
                         const road = a.road || "";
-                        const num = a.house_number || a.block_number || ""; // 番地
+                        const num = a.house_number || a.block_number || ""; 
                         
                         let addressText = `${city}${suburb}${road}${num}`.trim();
+                        if(!addressText) addressText = "玉村町エリア";
                         
-                        // 万が一地図データ側から文字住所が何も返らなかった場合の処理
-                        if(!addressText) addressText = "玉村町内";
-                        
-                        // 【ご要望】座標データ ＋ 町名 ＋ 番地 を合体して表示
-                        const fullDisplay = `${coordText} ${addressText}`;
-                        document.getElementById('current-address').innerText = fullDisplay;
-                        localStorage.setItem('tamamura_last_address', fullDisplay);
+                        document.getElementById('current-address').innerText = `${coordText} ${addressText}`;
                     } else {
                         document.getElementById('current-address').innerText = `${coordText} 玉村町エリア`;
                     }
                 } catch (e) {
-                    // 通信エラーや混雑時も、GPSから直接引いた生座標だけは確実にリアルタイム更新
                     document.getElementById('current-address').innerText = `${coordText} GPS同期中`;
                 }
             }, (error) => {
                 document.getElementById('current-address').innerText = "位置情報を許可してください";
             }, { 
-                enableHighAccuracy: true, // 高精度GPSを使用
+                enableHighAccuracy: true, 
                 timeout: 8000 
             });
         }
 
-        // バトル画面への安全なデータ引き渡しと遷移
         function goToBattle(name, monster) {
             sessionStorage.setItem('current_battle_name', name + 'バトル');
             sessionStorage.setItem('current_battle_monster', monster);
