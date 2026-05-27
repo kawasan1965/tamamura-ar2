@@ -15,64 +15,64 @@
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
         body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--primary); color: white; overflow-x: hidden; }
 
-        /* 全体コンテナ */
-        .container { padding: 20px; display: flex; flex-direction: column; gap: 20px; min-height: 100vh; }
+        .container { padding: 15px; display: flex; flex-direction: column; gap: 15px; min-height: 100vh; }
 
         /* ヘッダーエリア */
-        .header { text-align: center; padding: 10px 0; border-bottom: 2px solid var(--accent); }
-        .header h1 { font-size: 24px; color: #fff; letter-spacing: 2px; text-shadow: 0 0 10px rgba(59,130,246,0.5); }
-        .header p { font-size: 11px; color: #64748b; margin-top: 5px; }
+        .header { text-align: center; padding: 5px 0; border-bottom: 2px solid var(--accent); }
+        .header h1 { font-size: 22px; color: #fff; letter-spacing: 2px; text-shadow: 0 0 10px rgba(59,130,246,0.5); }
+        .header p { font-size: 10px; color: #64748b; margin-top: 2px; }
 
-        /* ★新設：リアルの歩数・位置情報ステータスボード */
-        .status-board {
-            background: rgba(30, 41, 59, 0.7);
+        /* 🏆 【復活】上部の3連ステータスカード（横並び） */
+        .top-status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .status-card {
+            background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; padding: 10px 6px; text-align: center;
+        }
+        .status-card-label { font-size: 9px; color: #94a3b8; font-weight: bold; margin-bottom: 3px; }
+        .status-card-val { font-size: 15px; font-weight: bold; color: #fff; }
+
+        /* 🚶‍♂️📍 【ミニマム化】新設の歩数・位置情報コンパクトボード */
+        .realtime-mini-board {
+            background: rgba(15, 23, 42, 0.9);
             border: 2px solid var(--accent);
-            border-radius: 16px;
-            padding: 15px;
+            border-radius: 14px;
+            padding: 10px 12px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            gap: 8px;
+            font-size: 12px;
         }
-        .status-item { display: flex; align-items: center; gap: 15px; }
-        .status-icon { font-size: 30px; width: 40px; text-align: center; }
-        .status-info { flex-grow: 1; display: flex; flex-direction: column; gap: 2px; }
-        .status-label { font-size: 11px; color: #94a3b8; font-weight: bold; }
-        .status-value { font-size: 18px; font-weight: bold; color: #fff; }
-        #today-steps { color: var(--yellow); font-size: 24px; }
-        #current-address { color: #38bdf8; font-size: 13px; line-height: 1.4; }
+        .mini-row { display: flex; justify-content: space-between; align-items: center; }
+        .mini-label { color: #94a3b8; font-weight: bold; display: flex; align-items: center; gap: 5px; }
+        .mini-val { font-weight: bold; text-align: right; }
+        
+        #today-steps { color: var(--yellow); font-size: 15px; }
+        #current-address { color: #38bdf8; font-size: 11px; word-break: break-all; }
 
-        /* モーションセンサーの起動ボタン（iOS対策） */
-        .sensor-btn {
-            background: linear-gradient(135deg, #1e293b, #334155);
-            color: #94a3b8; border: 1px solid #475569; padding: 10px;
-            border-radius: 10px; font-size: 12px; font-weight: bold; cursor: pointer;
-            text-align: center; margin-top: 5px; display: none;
+        /* モーション認証用の最小化ボタン */
+        .sensor-mini-btn {
+            background: var(--accent); color: white; border: none; padding: 4px 8px;
+            border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; margin-left: 5px;
         }
-        .sensor-btn.active { background: var(--success); color: white; border: none; }
 
-        /* ミッション選択（レベル選択エリア） */
-        .mission-section { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
-        .section-title { font-size: 14px; color: #94a3b8; font-weight: bold; padding-left: 5px; border-left: 4px solid var(--accent); }
+        /* 作戦区域（レベル選択エリア） */
+        .mission-section { display: flex; flex-direction: column; gap: 12px; margin-top: 5px; }
+        .section-title { font-size: 13px; color: #94a3b8; font-weight: bold; padding-left: 5px; border-left: 4px solid var(--accent); }
 
         .card {
             background: linear-gradient(135deg, #1e293b, #0f172a);
             border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 16px; padding: 20px; display: flex; justify-content: space-between; align-items: center;
-            cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            border-radius: 16px; padding: 16px; display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
-        .card:active { transform: scale(0.98); }
         .card.level2 { border-color: rgba(239, 68, 68, 0.3); }
-
-        .card-info { display: flex; flex-direction: column; gap: 5px; }
-        .card-tag { font-size: 10px; font-weight: bold; padding: 3px 8px; border-radius: 20px; width: fit-content; }
+        .card-info { display: flex; flex-direction: column; gap: 4px; }
+        .card-tag { font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 20px; width: fit-content; }
         .tag-l1 { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #2563eb; }
         .tag-l2 { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #dc2626; }
-        
-        .card-title { font-size: 18px; font-weight: bold; color: white; margin-top: 3px; }
-        .card-desc { font-size: 12px; color: #94a3b8; }
-        .card-arrow { font-size: 24px; color: #475569; }
+        .card-title { font-size: 16px; font-weight: bold; color: white; }
+        .card-desc { font-size: 11px; color: #64748b; }
+        .card-arrow { font-size: 20px; color: #475569; }
     </style>
 </head>
 <body>
@@ -83,22 +83,32 @@
             <p>玉村町デジタル防衛本部 ポータル画面</p>
         </div>
 
-        <div class="status-board">
-            <div class="status-item">
-                <div class="status-icon">🏃</div>
-                <div class="status-info">
-                    <div class="status-label">REALTIME PEDOMETER / 開いている間の歩数</div>
-                    <div class="status-value"><span id="today-steps">0</span> <span style="font-size:14px; color:#94a3b8;">歩</span></div>
-                    <button id="sensorAuthBtn" class="sensor-btn" onclick="requestSensorPermission()">⚠️ タップして歩数計を連動する</button>
+        <div class="top-status-grid">
+            <div class="status-card">
+                <div class="status-card-label">通算獲得ポイント</div>
+                <div class="status-card-val" id="total-pt-val" style="color:#facc15;">0 <span style="font-size:10px;">PT</span></div>
+            </div>
+            <div class="status-card">
+                <div class="status-card-label">討伐ミッション</div>
+                <div class="status-card-val" id="cleared-missions-val">0 / 2</div>
+            </div>
+            <div class="status-card">
+                <div class="status-card-label">防衛隊階級</div>
+                <div class="status-card-val" id="rank-val" style="color:#60a5fa; font-size:12px;">見習い兵</div>
+            </div>
+        </div>
+
+        <div class="realtime-mini-board">
+            <div class="mini-row">
+                <div class="mini-label">🏃‍♂️ 現在の歩数</div>
+                <div class="mini-val">
+                    現在 <span id="today-steps">0</span> 歩
+                    <button id="sensorMiniAuth" class="sensor-mini-btn" onclick="requestSensorPermission()">連動ON</button>
                 </div>
             </div>
-
-            <div class="status-item" style="border-top:1px solid rgba(255,255,255,0.1); padding-top:12px;">
-                <div class="status-icon">📍</div>
-                <div class="status-info">
-                    <div class="status-label">GPS LOCATION / 現在地（市町村・番地）</div>
-                    <div class="status-value" id="current-address">GPS信号を探索中...</div>
-                </div>
+            <div class="mini-row" style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:6px;">
+                <div class="mini-label">📍 現在位置</div>
+                <div class="mini-val" id="current-address">GPS信号探索中...</div>
             </div>
         </div>
 
@@ -126,123 +136,122 @@
     </div>
 
     <script>
-        // --- 共通データの管理 ---
+        // --- データ初期化と読み込み ---
         let stepCount = parseInt(localStorage.getItem('tamamura_steps')) || 0;
+        let totalPt = parseInt(localStorage.getItem('tamamura_total_pt')) || 0;
+        let clearedCount = parseInt(localStorage.getItem('tamamura_cleared_count')) || 0;
 
         window.onload = function() {
+            // 3つのフィールドへ値をセット
+            document.getElementById('total-pt-val').innerHTML = `${totalPt} <span style="font-size:10px;">PT</span>`;
+            document.getElementById('cleared-missions-val').innerText = `${clearedCount} / 2`;
+            
+            // 階級判定のオマケ演出
+            let rank = "見習い兵";
+            if(totalPt >= 50) rank = "正規防衛隊員";
+            if(totalPt >= 100) rank = "玉村の守護騎士";
+            document.getElementById('rank-val').innerText = rank;
+
+            // 歩数セット
             document.getElementById('today-steps').innerText = stepCount;
             
-            // 1. 歩数計（モーションセンサー）の初期チェック
+            // 歩数センサーとGPSの開始
             checkSensorAvailability();
-
-            // 2. GPS位置情報の自動追跡開始
             startGpsTracking();
         };
 
-        // --- ① 歩数計（モーションセンサー連動）システム ---
+        // --- ① 歩数計システム ---
         function checkSensorAvailability() {
             if ('DeviceMotionEvent' in window) {
-                // iPhone (iOS13以降) はボタンを押して手動で許可を求める必要がある
                 if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                    document.getElementById('sensorAuthBtn').style.display = 'block';
+                    document.getElementById('sensorMiniAuth').style.display = 'inline-block';
                 } else {
-                    // Androidや古いiOSはそのまま自動でセンサーを起動
+                    document.getElementById('sensorMiniAuth').style.display = 'none';
                     startCounting();
                 }
             } else {
-                document.getElementById('current-address').innerText = "この端末は揺れセンサー非対応です";
+                document.getElementById('sensorMiniAuth').style.display = 'none';
             }
         }
 
-        // iPhone用の許可ボタンが押された時の処理
         function requestSensorPermission() {
             DeviceMotionEvent.requestPermission()
                 .then(response => {
                     if (response === 'granted') {
                         startCounting();
-                        const btn = document.getElementById('sensorAuthBtn');
-                        btn.innerText = "✓ 歩数計が正常に連動しました";
-                        btn.classList.add('active');
-                        setTimeout(() => { btn.style.display = 'none'; }, 2000);
-                    } else {
-                        alert("歩数計の連動が拒否されました。");
+                        const btn = document.getElementById('sensorMiniAuth');
+                        btn.innerText = "✓ 連動中";
+                        btn.style.background = "#10b981";
+                        btn.disabled = true;
                     }
-                })
-                .catch(console.error);
+                }).catch(console.error);
         }
 
-        // 実際にスマホの揺れを感知して一歩ずつカウントするコア関数
         function startCounting() {
             let lastZ = 0;
             window.addEventListener('devicemotion', (event) => {
                 if(!event.accelerationIncludingGravity) return;
-                
-                // スマホの縦・前後揺れの重力加速度を取得
                 let z = event.accelerationIncludingGravity.y || event.accelerationIncludingGravity.z || 0; 
                 let delta = Math.abs(z - lastZ);
-
-                // 人が歩いた時の「ガクッ」という揺れのしきい値(11以上で1歩と判定)
                 if (delta > 11) { 
                     stepCount++;
                     document.getElementById('today-steps').innerText = stepCount;
-                    // 後々使えるようにスマホ内に歩数を保存
                     localStorage.setItem('tamamura_steps', stepCount);
                 }
                 lastZ = z;
             });
         }
 
-        // --- ② GPS位置情報 ➔ リアルタイム住所変換システム ---
+        // --- ② GPS ➔ 住所（町＋番地）変換システム改良版 ---
         function startGpsTracking() {
             if (!navigator.geolocation) {
-                document.getElementById('current-address').innerText = "お使いの端末はGPS非対応です。";
+                document.getElementById('current-address').innerText = "GPS非対応端末";
                 return;
             }
 
-            // プレイヤーの現在地をリアルタイムで高精度に監視 (watchPosition)
             navigator.geolocation.watchPosition(async (position) => {
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
 
                 try {
-                    // 世界の地図オープンデータ(OSM)を使い、緯度経度から一瞬で日本の住所に翻訳する
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=ja`);
                     const data = await response.json();
                     
                     if (data && data.address) {
                         const a = data.address;
-                        // 県、市町村、番地、建物を綺麗にドッキング
-                        const prefecture = a.prefecture || "";
+                        
+                        // 日本の番地データを幅広く抽出するロジック
                         const city = a.city || a.town || a.village || "";
                         const suburb = a.suburb || a.neighbourhood || "";
                         const road = a.road || "";
-                        const houseNum = a.house_number || "";
+                        // システムによって house_number だったり block_number だったりするため統合
+                        const num = a.house_number || a.block_number || "";
                         
-                        const fullAddress = `${prefecture}${city}${suburb} ${road} ${houseNum}`.trim();
+                        // 「町名」＋「番地・号」を抽出してスッキリ結合
+                        let addressText = `${city}${suburb} ${road} ${num}`.trim();
                         
-                        document.getElementById('current-address').innerText = fullAddress || "玉村町エリア内";
-                        // 住所データも後々使えるようLocalStorageに保存
-                        localStorage.setItem('tamamura_last_address', fullAddress);
+                        // 万が一地図データ側が番地を返さなかった時のための保険演出
+                        if(!num) {
+                            addressText += `付近 (GPS精度:${Math.round(position.coords.accuracy)}m)`;
+                        }
+                        
+                        document.getElementById('current-address').innerText = addressText;
+                        localStorage.setItem('tamamura_last_address', addressText);
                     } else {
-                        document.getElementById('current-address').innerText = "住所の自動変換に失敗しました";
+                        // データ未取得時は現在地の緯度経度を出してシステム感をキープ
+                        document.getElementById('current-address').innerText = `玉村町エリア内 (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
                     }
                 } catch (e) {
-                    document.getElementById('current-address').innerText = "位置情報サーバーが混雑しています";
+                    document.getElementById('current-address').innerText = `GPS同期中 (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
                 }
             }, (error) => {
-                // GPSの利用許可がオフになっている場合のエラーハンドリング
-                document.getElementById('current-address').innerText = "ブラウザの位置情報設定を【許可】にしてください";
-            }, { 
-                enableHighAccuracy: true, // 高精度GPSモード
-                timeout: 10000 
-            });
+                document.getElementById('current-address').innerText = "位置情報を【許可】にしてください";
+            }, { enableHighAccuracy: true, timeout: 8000 });
         }
 
-        // 画面遷移関数
         function goToLevel(lv) {
             if(lv === 1) window.location.href = 'level1.html';
             if(lv === 2) {
-                // レベル2へ進むボタン（テスト用に初期カナメ・ドラゴンのデータを添えて）
                 window.location.href = 'level2.html?data=00F03F0001FF800007FFC0000FFF20001F3EC0003E7CD0003C7C3E007C7C3E00F07E0F00FF00FF00FF3CFF00FE3C7F00FC003F00F8241F00';
             }
         }
