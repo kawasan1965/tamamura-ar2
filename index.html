@@ -3,159 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>たまむらふぃーるど - 本部ポータル</title>
+    <title>たまむらふぃーるど - 拠点選択マップ</title>
     <style>
         :root {
-            --primary: #0f172a;
-            --accent: #3b82f6;
-            --danger: #ef4444;
-            --yellow: #facc15;
+            --primary: #005088;
+            --accent: #facc15;
+            --dark: #0f172a;
+            --blue-light: #38bdf8;
             --success: #10b981;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-        body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--primary); color: white; overflow-x: hidden; }
+        body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--dark); color: white; overflow: hidden; }
 
-        .container { padding: 15px; display: flex; flex-direction: column; gap: 15px; min-height: 100vh; }
+        /* 全画面カメラ映像エリア */
+        #video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        .overlay-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); z-index: 2; pointer-events: none; }
 
-        /* ヘッダーエリア */
-        .header { text-align: center; padding: 5px 0; border-bottom: 2px solid var(--accent); }
-        .header h1 { font-size: 22px; color: #fff; letter-spacing: 2px; text-shadow: 0 0 10px rgba(59,130,246,0.5); }
-        .header p { font-size: 10px; color: #64748b; margin-top: 2px; }
-
-        /* 🏆 【復活】上部の3連ステータスカード（横並び） */
-        .top-status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .status-card {
-            background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px; padding: 10px 6px; text-align: center;
-        }
-        .status-card-label { font-size: 9px; color: #94a3b8; font-weight: bold; margin-bottom: 3px; }
-        .status-card-val { font-size: 15px; font-weight: bold; color: #fff; }
-
-        /* 🚶‍♂️📍 【ミニマム化】新設の歩数・位置情報コンパクトボード */
-        .realtime-mini-board {
-            background: rgba(15, 23, 42, 0.9);
-            border: 2px solid var(--accent);
-            border-radius: 14px;
-            padding: 10px 12px;
+        /* 玉村町の外郭白線コンテナ */
+        .tamamura-map-container {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 400px;
+            height: 32vh;
+            z-index: 3;
             display: flex;
-            flex-direction: column;
-            gap: 8px;
-            font-size: 12px;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
         }
-        .mini-row { display: flex; justify-content: space-between; align-items: center; }
-        .mini-label { color: #94a3b8; font-weight: bold; display: flex; align-items: center; gap: 5px; }
-        .mini-val { font-weight: bold; text-align: right; }
+        .tamamura-outline {
+            width: 100%;
+            height: 100%;
+            stroke: rgba(255, 255, 255, 0.7);
+            stroke-width: 3;
+            fill: rgba(255, 255, 255, 0.04);
+            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.4));
+        }
+
+        /* 👑 ミニマム統合された上部HUDステータスエリア */
+        .header-hud {
+            position: absolute; top: 15px; left: 12px; right: 12px;
+            background: rgba(15, 23, 42, 0.9); padding: 10px 15px; border-radius: 16px;
+            z-index: 10; border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(8px);
+            display: flex; flex-direction: column; gap: 4px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+        .hud-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #94a3b8; }
+        .hud-title { font-size: 15px; font-weight: bold; color: white; letter-spacing: 1px; }
         
-        #today-steps { color: var(--yellow); font-size: 15px; }
-        #current-address { color: #38bdf8; font-size: 11px; word-break: break-all; }
+        /* 各ステータスの値のデザイン */
+        .val-pt { background: linear-gradient(135deg, #10b981, #059669); padding: 2px 10px; border-radius: 12px; color: white; font-weight: bold; font-size: 12px; }
+        .val-steps { color: var(--accent); font-weight: bold; font-size: 13px; }
+        .val-address { color: var(--blue-light); font-weight: bold; font-size: 11px; text-align: right; max-width: 70%; word-break: break-all; }
 
-        /* モーション認証用の最小化ボタン */
-        .sensor-mini-btn {
-            background: var(--accent); color: white; border: none; padding: 4px 8px;
-            border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; margin-left: 5px;
+        /* 歩数計ON用のミニボタン */
+        .sensor-btn {
+            background: #2563eb; color: white; border: none; padding: 2px 6px;
+            border-radius: 5px; font-size: 9px; font-weight: bold; cursor: pointer; margin-left: 5px; vertical-align: middle;
         }
 
-        /* 作戦区域（レベル選択エリア） */
-        .mission-section { display: flex; flex-direction: column; gap: 12px; margin-top: 5px; }
-        .section-title { font-size: 13px; color: #94a3b8; font-weight: bold; padding-left: 5px; border-left: 4px solid var(--accent); }
-
-        .card {
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 16px; padding: 16px; display: flex; justify-content: space-between; align-items: center;
-            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        /* ガイドメッセージ */
+        .map-guide {
+            position: absolute; bottom: 180px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8); padding: 6px 14px; border-radius: 20px;
+            font-size: 11px; font-weight: bold; z-index: 10; border: 1px solid rgba(255,255,255,0.2);
+            text-align: center; white-space: nowrap;
         }
-        .card.level2 { border-color: rgba(239, 68, 68, 0.3); }
-        .card-info { display: flex; flex-direction: column; gap: 4px; }
-        .card-tag { font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 20px; width: fit-content; }
-        .tag-l1 { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #2563eb; }
-        .tag-l2 { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #dc2626; }
-        .card-title { font-size: 16px; font-weight: bold; color: white; }
-        .card-desc { font-size: 11px; color: #64748b; }
-        .card-arrow { font-size: 20px; color: #475569; }
+
+        /* 3つのバトル拠点カルーセル */
+        .spot-carousel {
+            position: absolute; bottom: 25px; left: 0; width: 100%;
+            display: flex; gap: 15px; padding: 0 20px 15px 20px;
+            overflow-x: auto; scroll-snap-type: x mandatory; z-index: 10;
+            -webkit-overflow-scrolling: touch;
+        }
+        .spot-carousel::-webkit-scrollbar { display: none; }
+        
+        .spot-card {
+            flex: 0 0 78%; scroll-snap-align: center;
+            background: rgba(15, 23, 42, 0.95); border-radius: 18px; padding: 14px;
+            border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 12px;
+        }
+        .spot-icon { font-size: 32px; background: #1e293b; width: 55px; height: 55px; display: flex; align-items: center; justify-content: center; border-radius: 14px; border: 1px solid #334155; }
+        .spot-info { flex-grow: 1; }
+        .spot-info h3 { font-size: 14px; margin-bottom: 1px; color: white; }
+        .spot-info p { font-size: 11px; color: #94a3b8; margin-bottom: 6px; }
+        
+        .battle-start-btn {
+            background: linear-gradient(135deg, #ef4444, #dc2626); color: white;
+            border: none; padding: 6px 12px; font-size: 11px; font-weight: bold;
+            border-radius: 6px; cursor: pointer; box-shadow: 0 3px #991b1b;
+        }
+        .battle-start-btn:active { transform: translateY(2px); box-shadow: 0 1px #991b1b; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <div class="header">
-            <h1>TAMAMURA FIELD</h1>
-            <p>玉村町デジタル防衛本部 ポータル画面</p>
+    <video id="video" autoplay playsinline muted></video>
+    <div class="overlay-mask"></div>
+
+    <div class="header-hud">
+        <div class="hud-row">
+            <span class="hud-title">たまむらふぃーるど</span>
+            <span class="val-pt">通算: <span id="total-points">0</span> PT</span>
         </div>
+        <div class="hud-row" style="margin-top: 2px;">
+            <span>🚶‍♂️ 歩数データ</span>
+            <span class="val-steps">現在 <span id="today-steps">0</span> 歩<button id="sensorAuthBtn" class="sensor-btn" onclick="requestSensorPermission()">ON</button></span>
+        </div>
+        <div class="hud-row" style="margin-top: 2px;">
+            <span>📍 現在位置</span>
+            <span class="val-address" id="current-address">GPS信号を探索中...</span>
+        </div>
+    </div>
 
-        <div class="top-status-grid">
-            <div class="status-card">
-                <div class="status-card-label">通算獲得ポイント</div>
-                <div class="status-card-val" id="total-pt-val" style="color:#facc15;">0 <span style="font-size:10px;">PT</span></div>
-            </div>
-            <div class="status-card">
-                <div class="status-card-label">討伐ミッション</div>
-                <div class="status-card-val" id="cleared-missions-val">0 / 2</div>
-            </div>
-            <div class="status-card">
-                <div class="status-card-label">防衛隊階級</div>
-                <div class="status-card-val" id="rank-val" style="color:#60a5fa; font-size:12px;">見習い兵</div>
+    <div class="tamamura-map-container">
+        <svg class="tamamura-outline" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+            <path d="
+                M 45,15 
+                L 55,16 L 60,18 L 62,25 L 68,27 L 72,24 L 75,32 
+                L 68,43 L 73,50 L 76,55 L 75,64 L 88,77 L 85,83 
+                L 76,82 L 72,88 L 60,86 L 50,78 L 47,82 L 40,82 
+                L 35,76 L 31,77 L 27,68 L 33,63 L 33,55 L 25,52 
+                L 24,46 L 30,39 L 36,40 L 40,32 L 40,24 L 43,20 Z
+            "/>
+        </svg>
+    </div>
+
+    <div class="map-guide">左右にスワイプしてバトル拠点を選択 ▽</div>
+
+    <div class="spot-carousel">
+        <div class="spot-card">
+            <div class="spot-icon">🌲</div>
+            <div class="spot-info">
+                <h3>北部公園スポット</h3>
+                <p>出現：たまご竜 (LV.1)</p>
+                <button class="battle-start-btn" onclick="goToBattle('北部公園', '🦖')">バトル開始</button>
             </div>
         </div>
-
-        <div class="realtime-mini-board">
-            <div class="mini-row">
-                <div class="mini-label">🏃‍♂️ 現在の歩数</div>
-                <div class="mini-val">
-                    現在 <span id="today-steps">0</span> 歩
-                    <button id="sensorMiniAuth" class="sensor-mini-btn" onclick="requestSensorPermission()">連動ON</button>
-                </div>
-            </div>
-            <div class="mini-row" style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:6px;">
-                <div class="mini-label">📍 現在位置</div>
-                <div class="mini-val" id="current-address">GPS信号探索中...</div>
+        <div class="spot-card">
+            <div class="spot-icon">🏫</div>
+            <div class="spot-info">
+                <h3>玉村小学校スポット</h3>
+                <p>出現：わんぱく犬 (LV.1)</p>
+                <button class="battle-start-btn" onclick="goToBattle('玉村小学校', '🐶')">バトル開始</button>
             </div>
         </div>
-
-        <div class="mission-section">
-            <div class="section-title">作戦区域を選択してください</div>
-
-            <div class="card" onclick="goToLevel(1)">
-                <div class="card-info">
-                    <span class="card-tag tag-l1">LEVEL 1</span>
-                    <span class="card-title">玉村小学校 バトル</span>
-                    <span class="card-desc">ARカメラで出現する敵を撃退せよ</span>
-                </div>
-                <div class="card-arrow">➔</div>
-            </div>
-
-            <div class="card level2" onclick="goToLevel(2)">
-                <div class="card-info">
-                    <span class="card-tag tag-l2">LEVEL 2 (究極)</span>
-                    <span class="card-title">要地点 最終決戦</span>
-                    <span class="card-desc">現地QRコードから召喚されるボスを討伐せよ</span>
-                </div>
-                <div class="card-arrow" style="color:#7f1d1d;">➔</div>
+        <div class="spot-card">
+            <div class="spot-icon">🌊</div>
+            <div class="spot-info">
+                <h3>烏川・岩倉橋スポット</h3>
+                <p>出現：リバーカッパ (LV.1)</p>
+                <button class="battle-start-btn" onclick="goToBattle('烏川・岩倉橋', '🥒')">バトル開始</button>
             </div>
         </div>
     </div>
 
     <script>
-        // --- データ初期化と読み込み ---
+        // --- データの読み込み ---
         let stepCount = parseInt(localStorage.getItem('tamamura_steps')) || 0;
-        let totalPt = parseInt(localStorage.getItem('tamamura_total_pt')) || 0;
-        let clearedCount = parseInt(localStorage.getItem('tamamura_cleared_count')) || 0;
+        let pts = localStorage.getItem('tamamura_total_pt') || localStorage.getItem('tamamura_points_demo') || '0';
 
         window.onload = function() {
-            // 3つのフィールドへ値をセット
-            document.getElementById('total-pt-val').innerHTML = `${totalPt} <span style="font-size:10px;">PT</span>`;
-            document.getElementById('cleared-missions-val').innerText = `${clearedCount} / 2`;
-            
-            // 階級判定のオマケ演出
-            let rank = "見習い兵";
-            if(totalPt >= 50) rank = "正規防衛隊員";
-            if(totalPt >= 100) rank = "玉村の守護騎士";
-            document.getElementById('rank-val').innerText = rank;
-
-            // 歩数セット
+            // 通算ポイントと歩数のセット
+            document.getElementById('total-points').innerText = pts;
             document.getElementById('today-steps').innerText = stepCount;
-            
-            // 歩数センサーとGPSの開始
+
+            // 1. 背景ARカメラの起動
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+                .then(stream => { document.getElementById('video').srcObject = stream; })
+                .catch(() => { console.log("カメラなし環境または未許可で起動"); });
+
+            // 2. センサー類の初期化
             checkSensorAvailability();
             startGpsTracking();
         };
@@ -164,13 +187,13 @@
         function checkSensorAvailability() {
             if ('DeviceMotionEvent' in window) {
                 if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                    document.getElementById('sensorMiniAuth').style.display = 'inline-block';
+                    document.getElementById('sensorAuthBtn').style.display = 'inline-block';
                 } else {
-                    document.getElementById('sensorMiniAuth').style.display = 'none';
+                    document.getElementById('sensorAuthBtn').style.display = 'none';
                     startCounting();
                 }
             } else {
-                document.getElementById('sensorMiniAuth').style.display = 'none';
+                document.getElementById('sensorAuthBtn').style.display = 'none';
             }
         }
 
@@ -179,8 +202,8 @@
                 .then(response => {
                     if (response === 'granted') {
                         startCounting();
-                        const btn = document.getElementById('sensorMiniAuth');
-                        btn.innerText = "✓ 連動中";
+                        const btn = document.getElementById('sensorAuthBtn');
+                        btn.innerText = "✓";
                         btn.style.background = "#10b981";
                         btn.disabled = true;
                     }
@@ -202,7 +225,7 @@
             });
         }
 
-        // --- ② GPS ➔ 住所（町＋番地）変換システム改良版 ---
+        // --- ② GPS位置情報 ➔ リアルタイム住所「町＋番地」変換システム ---
         function startGpsTracking() {
             if (!navigator.geolocation) {
                 document.getElementById('current-address').innerText = "GPS非対応端末";
@@ -220,40 +243,37 @@
                     if (data && data.address) {
                         const a = data.address;
                         
-                        // 日本の番地データを幅広く抽出するロジック
+                        // 日本の市区町村・町名・番地を幅広く抽出してドッキングするロジック
                         const city = a.city || a.town || a.village || "";
                         const suburb = a.suburb || a.neighbourhood || "";
                         const road = a.road || "";
-                        // システムによって house_number だったり block_number だったりするため統合
-                        const num = a.house_number || a.block_number || "";
+                        const num = a.house_number || a.block_number || ""; // 番地・号
                         
-                        // 「町名」＋「番地・号」を抽出してスッキリ結合
                         let addressText = `${city}${suburb} ${road} ${num}`.trim();
                         
-                        // 万が一地図データ側が番地を返さなかった時のための保険演出
+                        // 万が一データ側が番地を返さなかった場合の「付近」表示保険
                         if(!num) {
-                            addressText += `付近 (GPS精度:${Math.round(position.coords.accuracy)}m)`;
+                            addressText += " 付近";
                         }
                         
                         document.getElementById('current-address').innerText = addressText;
                         localStorage.setItem('tamamura_last_address', addressText);
                     } else {
-                        // データ未取得時は現在地の緯度経度を出してシステム感をキープ
-                        document.getElementById('current-address').innerText = `玉村町エリア内 (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+                        document.getElementById('current-address').innerText = `玉村町内 (${lat.toFixed(3)}, ${lon.toFixed(3)})`;
                     }
                 } catch (e) {
-                    document.getElementById('current-address').innerText = `GPS同期中 (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+                    document.getElementById('current-address').innerText = `GPS同期中 (${lat.toFixed(3)}, ${lon.toFixed(3)})`;
                 }
             }, (error) => {
-                document.getElementById('current-address').innerText = "位置情報を【許可】にしてください";
+                document.getElementById('current-address').innerText = "位置情報を許可してください";
             }, { enableHighAccuracy: true, timeout: 8000 });
         }
 
-        function goToLevel(lv) {
-            if(lv === 1) window.location.href = 'level1.html';
-            if(lv === 2) {
-                window.location.href = 'level2.html?data=00F03F0001FF800007FFC0000FFF20001F3EC0003E7CD0003C7C3E007C7C3E00F07E0F00FF00FF00FF3CFF00FE3C7F00FC003F00F8241F00';
-            }
+        // バトル画面への安全なデータ引き渡しと遷移
+        function goToBattle(name, monster) {
+            sessionStorage.setItem('current_battle_name', name + 'バトル');
+            sessionStorage.setItem('current_battle_monster', monster);
+            window.location.href = 'level1.html';
         }
     </script>
 </body>
